@@ -1,0 +1,93 @@
+.title-bar {
+  height: 36px;
+  background: #0A0E14;
+  border-bottom: 1px solid #1A1F2B;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 8px;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.title-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.win-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.btn-red {
+  background: #FF5F57;
+}
+
+.btn-yellow {
+  background: #FEBC2E;
+}
+
+.btn-green {
+  background: #28C840;
+}
+
+.title-text {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  color: #4A5568;
+  font-weight: 500;
+}
+
+.title-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tray-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #718096;
+  font-weight: 600;
+}
+
+.tray-indicator.active {
+  color: #68D391;
+}
+
+.tray-dot {
+  width: 6px;
+  height: 6px;
+  background: #718096;
+  border-radius: 50%;
+}
+
+.tray-indicator.active .tray-dot {
+  background: #68D391;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.tray-time {
+  font-size: 12px;
+  color: #718096;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,54 @@
+{
+  "name": "timetrack",
+  "version": "1.0.0",
+  "description": "Controle Automático de Horas por Projeto",
+  "main": "dist-electron/main/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
+    "build": "tsc --project tsconfig.node.json && vite build",
+    "build:win": "npm run build && electron-builder --win --x64",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["time-tracking", "windows", "electron"],
+  "author": "TimeTrack Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3",
+    "wait-on": "^9.0.4"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "electron-store": "^11.0.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "build": {
+    "appId": "com.timetrack.app",
+    "productName": "TimeTrack",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.ico"
+    }
+  }
+}

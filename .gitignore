@@ -1,0 +1,31 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+dist-electron
+
+# Electron build
+release
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Database (local development)
+*.db
+*.db-shm
+*.db-wal
