@@ -1,0 +1,145 @@
+// Prisma Schema for TimeTrack Server
+// PostgreSQL database for multi-user time tracking
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Users table - Employees and Managers
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  role         Role     @default(DEVELOPER)
+  avatarUrl    String?  @map("avatar_url")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  timeEntries      TimeEntry[]    @relation("UserTimeEntries")
+  adjustedEntries  TimeEntry[]    @relation("AdjustedByUser")
+  auditLogs        AuditLog[]     @relation("AuditLogUser")
+  targetAuditLogs  AuditLog[]     @relation("AuditLogTarget")
+  syncQueue        SyncQueue[]
+
+  @@map("users")
+}
+
+enum Role {
+  DEVELOPER
+  MANAGER
+}
+
+// Projects table - Shared across all users
+model Project {
+  id         String   @id @default(uuid())
+  name       String
+  subproject String?
+  color      String
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  timeEntries TimeEntry[]
+
+  @@map("projects")
+}
+
+// Time Entries - Individual tracking sessions
+model TimeEntry {
+  id                 String    @id @default(uuid())
+  userId             String    @map("user_id")
+  projectId          String?   @map("project_id")
+  appName            String    @map("app_name")
+  processName        String    @map("process_name")
+  startTime          DateTime  @map("start_time")
+  endTime            DateTime? @map("end_time")
+  duration           Int       @default(0) // seconds
+  status             EntryStatus @default(AUTO)
+  isManuallyAdjusted Boolean   @default(false) @map("is_manually_adjusted")
+  adjustedById       String?   @map("adjusted_by_id")
+  adjustmentReason   String?   @map("adjustment_reason")
+  clientId           String?   @map("client_id") // Track which desktop client created this
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user       User      @relation("UserTimeEntries", fields: [userId], references: [id], onDelete: Cascade)
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  adjustedBy User?     @relation("AdjustedByUser", fields: [adjustedById], references: [id])
+  auditLogs  AuditLog[]
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([startTime])
+  @@index([createdAt])
+  @@map("time_entries")
+}
+
+enum EntryStatus {
+  AUTO
+  MANUAL
+  PAUSED
+}
+
+// Audit Log - Track all manual adjustments by managers
+model AuditLog {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  targetUserId  String   @map("target_user_id")
+  timeEntryId   String   @map("time_entry_id")
+  projectName   String   @map("project_name")
+  oldValue      Json     @map("old_value")
+  newValue      Json     @map("new_value")
+  reason        String
+  timestamp     DateTime @default(now())
+
+  // Relations
+  user        User      @relation("AuditLogUser", fields: [userId], references: [id])
+  targetUser  User      @relation("AuditLogTarget", fields: [targetUserId], references: [id])
+  timeEntry   TimeEntry @relation(fields: [timeEntryId], references: [id])
+
+  @@index([userId])
+  @@index([timestamp])
+  @@map("audit_log")
+}
+
+// Sync Queue - For offline support
+model SyncQueue {
+  id         String      @id @default(uuid())
+  userId     String      @map("user_id")
+  entityType EntityType  @map("entity_type")
+  entityId   String      @map("entity_id")
+  operation  Operation
+  payload    Json
+  synced     Boolean     @default(false)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  syncedAt   DateTime?   @map("synced_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([synced])
+  @@map("sync_queue")
+}
+
+enum EntityType {
+  TIME_ENTRY
+  PROJECT
+  USER
+}
+
+enum Operation {
+  CREATE
+  UPDATE
+  DELETE
+}
