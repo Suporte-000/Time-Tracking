@@ -61,7 +61,7 @@
 }
 
 .tray-indicator.active {
-  color: #68D391;
+  color: #1FB8A0;
 }
 
 .tray-dot {
@@ -72,7 +72,7 @@
 }
 
 .tray-indicator.active .tray-dot {
-  background: #68D391;
+  background: #1FB8A0;
   animation: pulse 2s infinite;
 }
 

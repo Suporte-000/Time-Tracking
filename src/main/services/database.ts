@@ -172,10 +172,10 @@ export class DatabaseService {
 
     if (projectsCount.count === 0) {
       const defaultProjects = [
-        { name: 'Dashboard BI Bicicletas', subproject: null, color: '#4299E1' },
-        { name: 'Portal MedOcup', subproject: 'Backend', color: '#68D391' },
-        { name: 'E-commerce Cliente X', subproject: null, color: '#9F7AEA' },
-        { name: 'Reuniões e Comunicação', subproject: null, color: '#ED8936' },
+        { name: 'Dashboard BI Bicicletas', subproject: null, color: '#0B5563' },
+        { name: 'Portal MedOcup', subproject: 'Backend', color: '#14919B' },
+        { name: 'E-commerce Cliente X', subproject: null, color: '#1FB8A0' },
+        { name: 'Reuniões e Comunicação', subproject: null, color: '#0EA5A5' },
       ];
 
       const stmt = this.db.prepare(`
@@ -274,7 +274,7 @@ export class DatabaseService {
       const content = fs.readFileSync(filePath, 'utf-8');
       const lines = content.split('\n').filter((line) => line.trim());
 
-      const colors = ['#4299E1', '#68D391', '#9F7AEA', '#ED8936', '#F6AD55', '#FC8181'];
+      const colors = ['#0B5563', '#14919B', '#1FB8A0', '#0EA5A5', '#0D7E7E', '#20C9B5'];
 
       for (const line of lines) {
         try {

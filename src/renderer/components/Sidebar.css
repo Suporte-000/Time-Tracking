@@ -17,7 +17,7 @@
 }
 
 .sidebar-logo span {
-  color: #4299E1;
+  color: #1FB8A0;
 }
 
 .sidebar-section {
@@ -50,7 +50,7 @@
 .nav-item.active {
   background: #131820;
   color: #E2E8F0;
-  border-right: 2px solid #4299E1;
+  border-right: 2px solid #1FB8A0;
 }
 
 .nav-icon {
@@ -61,7 +61,7 @@
 
 .nav-badge {
   margin-left: auto;
-  background: #4299E1;
+  background: #1FB8A0;
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -84,7 +84,7 @@
 .user-avatar {
   width: 28px;
   height: 28px;
-  background: linear-gradient(135deg, #2B6CB0, #3182CE);
+  background: linear-gradient(135deg, #0B5563, #14919B);
   border-radius: 8px;
   display: flex;
   align-items: center;

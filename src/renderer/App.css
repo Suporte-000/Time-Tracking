@@ -39,14 +39,14 @@
 }
 
 .btn-primary {
-  background: #1A3A5C;
-  border-color: #4299E1;
-  color: #63B3ED;
+  background: #0B5563;
+  border-color: #1FB8A0;
+  color: #E8F6F5;
 }
 
 .btn-primary:hover {
-  background: #2A4A6C;
-  color: #90CDF4;
+  background: #14919B;
+  color: #E8F6F5;
 }
 
 /* Cards */

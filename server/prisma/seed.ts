@@ -58,7 +58,7 @@ async function main() {
       create: {
         id: 'proj-1',
         name: 'Dashboard BI Bicicletas',
-        color: '#4299E1',
+        color: '#0B5563',
         isActive: true,
       },
     }),
@@ -69,7 +69,7 @@ async function main() {
         id: 'proj-2',
         name: 'Portal MedOcup',
         subproject: 'Backend',
-        color: '#68D391',
+        color: '#14919B',
         isActive: true,
       },
     }),
@@ -79,7 +79,7 @@ async function main() {
       create: {
         id: 'proj-3',
         name: 'E-commerce Cliente X',
-        color: '#9F7AEA',
+        color: '#1FB8A0',
         isActive: true,
       },
     }),
@@ -89,7 +89,7 @@ async function main() {
       create: {
         id: 'proj-4',
         name: 'Reuniões e Comunicação',
-        color: '#ED8936',
+        color: '#0EA5A5',
         isActive: true,
       },
     }),
