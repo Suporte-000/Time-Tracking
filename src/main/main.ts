@@ -12,6 +12,8 @@ class TimeTrackApp {
   private windowMonitor: WindowMonitor | null = null;
   private activityMonitor: ActivityMonitor | null = null;
   private db: DatabaseService | null = null;
+  private popupTimers: Map<string, NodeJS.Timeout> = new Map();
+  private currentActiveProcess: string | null = null;
 
   constructor() {
     this.init();
@@ -84,9 +86,44 @@ class TimeTrackApp {
   }
 
   private createTray() {
-    // Create a simple tray icon (placeholder - will be replaced with actual icon)
-    const icon = nativeImage.createEmpty();
+    // Create a simple 16x16 teal circle icon
+    const canvas = document.createElement('canvas') as any;
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#1FB8A0';
+    ctx.beginPath();
+    ctx.arc(8, 8, 7, 0, 2 * Math.PI);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(8, 8, 3, 0, 2 * Math.PI);
+    ctx.fill();
+
+    const icon = nativeImage.createFromDataURL(canvas.toDataURL());
     this.tray = new Tray(icon);
+
+    this.updateTrayMenu();
+    this.tray.setToolTip('TimeTrack - Controle de Horas');
+
+    this.tray.on('click', () => {
+      this.mainWindow?.show();
+      this.mainWindow?.focus();
+    });
+
+    // Update tray menu every 5 seconds
+    setInterval(() => {
+      this.updateTrayMenu();
+    }, 5000);
+  }
+
+  private updateTrayMenu() {
+    if (!this.tray) return;
+
+    const activeEntries = this.db?.getTimeEntries();
+    const currentTracking = activeEntries?.find(entry => entry.endTime === null);
 
     const contextMenu = Menu.buildFromTemplate([
       {
@@ -95,14 +132,40 @@ class TimeTrackApp {
       },
       { type: 'separator' },
       {
-        label: 'Abrir',
+        label: currentTracking
+          ? `Rastreando: ${currentTracking.appName}`
+          : 'Sem rastreamento ativo',
+        enabled: false,
+      },
+      { type: 'separator' },
+      {
+        label: 'Abrir Dashboard',
+        click: () => {
+          this.mainWindow?.show();
+          this.mainWindow?.focus();
+        },
+      },
+      {
+        label: currentTracking ? 'Parar Rastreamento' : 'Iniciar Manual',
+        click: () => {
+          if (currentTracking) {
+            this.db?.stopTracking(currentTracking.id);
+          }
+          this.mainWindow?.show();
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Ver Histórico',
         click: () => {
           this.mainWindow?.show();
         },
       },
       {
-        label: 'Rastreando',
-        enabled: false,
+        label: 'Configurações',
+        click: () => {
+          this.mainWindow?.show();
+        },
       },
       { type: 'separator' },
       {
@@ -114,11 +177,17 @@ class TimeTrackApp {
     ]);
 
     this.tray.setContextMenu(contextMenu);
-    this.tray.setToolTip('TimeTrack - Rastreamento Ativo');
 
-    this.tray.on('click', () => {
-      this.mainWindow?.show();
-    });
+    // Update tooltip
+    if (currentTracking) {
+      const projects = this.db?.getProjects() || [];
+      const project = projects.find(p => p.id === currentTracking.projectId);
+      this.tray.setToolTip(
+        `TimeTrack - Rastreando: ${project?.name || currentTracking.appName}`
+      );
+    } else {
+      this.tray.setToolTip('TimeTrack - Sem rastreamento ativo');
+    }
   }
 
   private initializeMonitors() {
@@ -161,17 +230,51 @@ class TimeTrackApp {
   }
 
   private handleWindowChange(activeWindow: { processName: string; windowTitle: string }) {
+    const processName = activeWindow.processName;
+
+    // If process changed, clear previous timer
+    if (this.currentActiveProcess !== processName) {
+      if (this.currentActiveProcess) {
+        const timer = this.popupTimers.get(this.currentActiveProcess);
+        if (timer) {
+          clearTimeout(timer);
+          this.popupTimers.delete(this.currentActiveProcess);
+        }
+      }
+      this.currentActiveProcess = processName;
+    }
+
     // Check if this app is monitored
-    const monitoredApp = this.db?.getMonitoredAppByProcess(activeWindow.processName);
+    const monitoredApp = this.db?.getMonitoredAppByProcess(processName);
 
     if (monitoredApp && monitoredApp.isEnabled) {
       // Get config to check popup delay
       const config = this.db?.getConfig();
       const popupDelay = (config?.popupDelay || 2) * 60 * 1000; // Convert to milliseconds
 
-      // TODO: Implement delayed popup logic (wait for continuous use)
-      // For now, just log
-      console.log(`Monitored app detected: ${monitoredApp.name}, will show popup after ${popupDelay}ms`);
+      // Check if already tracking this app
+      const activeEntries = this.db?.getTimeEntries();
+      const alreadyTracking = activeEntries?.some(
+        entry => entry.processName === processName && entry.endTime === null
+      );
+
+      if (alreadyTracking) {
+        console.log(`Already tracking ${monitoredApp.name}`);
+        return;
+      }
+
+      // Set timer to show popup after continuous use
+      if (!this.popupTimers.has(processName)) {
+        console.log(`Starting timer for ${monitoredApp.name} (${popupDelay / 1000}s)`);
+
+        const timer = setTimeout(() => {
+          console.log(`Timer expired, showing popup for ${monitoredApp.name}`);
+          this.createPopupWindow(monitoredApp.name, processName);
+          this.popupTimers.delete(processName);
+        }, popupDelay);
+
+        this.popupTimers.set(processName, timer);
+      }
     }
   }
 
@@ -182,13 +285,14 @@ class TimeTrackApp {
     }
 
     this.popupWindow = new BrowserWindow({
-      width: 320,
-      height: 420,
+      width: 400,
+      height: 520,
       resizable: false,
       frame: false,
-      transparent: true,
+      transparent: false,
       alwaysOnTop: true,
       skipTaskbar: true,
+      backgroundColor: '#0A0E14',
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -196,11 +300,22 @@ class TimeTrackApp {
       },
     });
 
-    // Load popup view
+    // Center the popup on screen
+    this.popupWindow.center();
+
+    // Load popup view with query params
+    const queryParams = new URLSearchParams({
+      appName,
+      processName,
+    });
+
     if (process.env.NODE_ENV === 'development') {
-      this.popupWindow.loadURL('http://localhost:5173#popup');
+      this.popupWindow.loadURL(`http://localhost:5173?mode=popup&${queryParams.toString()}`);
+      this.popupWindow.webContents.openDevTools({ mode: 'detach' });
     } else {
-      this.popupWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'popup' });
+      this.popupWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+        query: { mode: 'popup', appName, processName },
+      });
     }
 
     this.popupWindow.on('closed', () => {
