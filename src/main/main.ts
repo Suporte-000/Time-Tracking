@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } from 'electron';
 import path from 'path';
 import { WindowMonitor } from './services/windowMonitor';
-import { ActivityMonitor } from './services/activityMonitor';
+import { ImprovedActivityMonitor } from './services/activityMonitorImproved';
 import { DatabaseService } from './services/database';
 import { IPC_CHANNELS } from '../shared/types';
 
@@ -10,7 +10,7 @@ class TimeTrackApp {
   private popupWindow: BrowserWindow | null = null;
   private tray: Tray | null = null;
   private windowMonitor: WindowMonitor | null = null;
-  private activityMonitor: ActivityMonitor | null = null;
+  private activityMonitor: ImprovedActivityMonitor | null = null;
   private db: DatabaseService | null = null;
   private popupTimers: Map<string, NodeJS.Timeout> = new Map();
   private currentActiveProcess: string | null = null;
@@ -86,23 +86,9 @@ class TimeTrackApp {
   }
 
   private createTray() {
-    // Create a simple 16x16 teal circle icon
-    const canvas = document.createElement('canvas') as any;
-    canvas.width = 16;
-    canvas.height = 16;
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#1FB8A0';
-    ctx.beginPath();
-    ctx.arc(8, 8, 7, 0, 2 * Math.PI);
-    ctx.fill();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(8, 8, 3, 0, 2 * Math.PI);
-    ctx.fill();
-
-    const icon = nativeImage.createFromDataURL(canvas.toDataURL());
+    // Create a simple tray icon using nativeImage
+    // Using an empty icon for now - can be replaced with actual icon file
+    const icon = nativeImage.createEmpty();
     this.tray = new Tray(icon);
 
     this.updateTrayMenu();
@@ -207,8 +193,8 @@ class TimeTrackApp {
       this.handleWindowChange(activeWindow);
     });
 
-    // Initialize activity monitor (keyboard/mouse hooks)
-    this.activityMonitor = new ActivityMonitor();
+    // Initialize improved activity monitor (event-driven with minimal CPU usage)
+    this.activityMonitor = new ImprovedActivityMonitor();
 
     this.activityMonitor.on('user-inactive', () => {
       console.log('User inactive');
