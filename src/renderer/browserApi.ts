@@ -1,4 +1,5 @@
 import type { Project, TimeEntry } from '../shared/types';
+import { PROJECT_COLORS } from '../shared/colors';
 
 /**
  * Browser fallback API using localStorage
@@ -29,7 +30,20 @@ function saveTimeEntries(entries: TimeEntry[]) {
 
 export const browserApi = {
   getProjects: async (): Promise<Project[]> => {
-    return getStoredProjects().filter(p => p.isActive);
+    const projects = getStoredProjects();
+    // Reassign distinct colors if projects have duplicate/similar colors
+    let updated = false;
+    const activeProjects = projects.filter(p => p.isActive);
+    activeProjects.forEach((p, i) => {
+      const newColor = PROJECT_COLORS[i % PROJECT_COLORS.length];
+      const original = projects.find(op => op.id === p.id);
+      if (original && original.color !== newColor) {
+        original.color = newColor;
+        updated = true;
+      }
+    });
+    if (updated) saveProjects(projects);
+    return activeProjects;
   },
 
   createProject: async (project: Omit<Project, 'id' | 'createdAt'>): Promise<Project> => {
@@ -115,7 +129,13 @@ export const browserApi = {
 
   getSuggestion: async (_processName: string) => null,
 
-  getMonitoredApps: async () => [],
+  getMonitoredApps: async () => [
+    { id: 'app-1', name: 'Visual Studio Code', processName: 'Code', icon: '💻', isEnabled: true, createdAt: '' },
+    { id: 'app-2', name: 'Google Chrome', processName: 'chrome', icon: '🌐', isEnabled: true, createdAt: '' },
+    { id: 'app-3', name: 'Figma', processName: 'Figma', icon: '🎨', isEnabled: true, createdAt: '' },
+    { id: 'app-4', name: 'Microsoft Teams', processName: 'Teams', icon: '💬', isEnabled: true, createdAt: '' },
+    { id: 'app-5', name: 'Notion', processName: 'Notion', icon: '📝', isEnabled: true, createdAt: '' },
+  ],
   updateMonitoredApp: async () => false,
   getConfig: async () => ({
     inactivityTimeout: 5,

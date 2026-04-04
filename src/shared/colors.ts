@@ -10,14 +10,18 @@ export const BRAND_COLORS = {
   background: '#E8F6F5',   // Light Teal/Mint
 } as const;
 
-// Project default colors (using brand palette)
+// Project default colors (distinct colors for each project)
 export const PROJECT_COLORS = [
-  '#0B5563',  // Dark Teal
-  '#14919B',  // Medium Teal
-  '#1FB8A0',  // Bright Teal
-  '#0EA5A5',  // Teal variation
-  '#0D7E7E',  // Darker Teal variation
-  '#20C9B5',  // Light Teal variation
+  '#1FB8A0',  // Teal (brand)
+  '#E8A638',  // Amber
+  '#7C6BF0',  // Purple
+  '#E85D75',  // Rose
+  '#3B82F6',  // Blue
+  '#F97316',  // Orange
+  '#10B981',  // Emerald
+  '#EC4899',  // Pink
+  '#8B5CF6',  // Violet
+  '#06B6D4',  // Cyan
 ] as const;
 
 // UI Colors (derived from brand colors)
