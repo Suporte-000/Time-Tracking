@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import PopupApp from './PopupApp';
+import { browserApi } from './browserApi';
 import './index.css';
 
 // Type augmentation for electron API
@@ -24,6 +25,11 @@ declare global {
       onUserActive: (callback: () => void) => void;
     };
   }
+}
+
+// Fallback to browser localStorage API when Electron is not available
+if (!window.electron) {
+  window.electron = browserApi as any;
 }
 
 // Determine which app to render based on URL hash

@@ -1,0 +1,136 @@
+import type { Project, TimeEntry } from '../shared/types';
+
+/**
+ * Browser fallback API using localStorage
+ * Used when running outside Electron (e.g., in a web browser)
+ */
+
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+function getStoredProjects(): Project[] {
+  const data = localStorage.getItem('timetrack_projects');
+  return data ? JSON.parse(data) : [];
+}
+
+function saveProjects(projects: Project[]) {
+  localStorage.setItem('timetrack_projects', JSON.stringify(projects));
+}
+
+function getStoredTimeEntries(): TimeEntry[] {
+  const data = localStorage.getItem('timetrack_entries');
+  return data ? JSON.parse(data) : [];
+}
+
+function saveTimeEntries(entries: TimeEntry[]) {
+  localStorage.setItem('timetrack_entries', JSON.stringify(entries));
+}
+
+export const browserApi = {
+  getProjects: async (): Promise<Project[]> => {
+    return getStoredProjects().filter(p => p.isActive);
+  },
+
+  createProject: async (project: Omit<Project, 'id' | 'createdAt'>): Promise<Project> => {
+    const newProject: Project = {
+      ...project,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+    };
+    const projects = getStoredProjects();
+    projects.push(newProject);
+    saveProjects(projects);
+    return newProject;
+  },
+
+  updateProject: async (id: string, updates: Partial<Project>): Promise<boolean> => {
+    const projects = getStoredProjects();
+    const idx = projects.findIndex(p => p.id === id);
+    if (idx === -1) return false;
+    projects[idx] = { ...projects[idx], ...updates };
+    saveProjects(projects);
+    return true;
+  },
+
+  deleteProject: async (id: string): Promise<boolean> => {
+    const projects = getStoredProjects();
+    const idx = projects.findIndex(p => p.id === id);
+    if (idx === -1) return false;
+    projects[idx].isActive = false;
+    saveProjects(projects);
+    return true;
+  },
+
+  importProjects: async (_filePath: string): Promise<{ imported: number; errors: string[] }> => {
+    return { imported: 0, errors: ['Importação de arquivo não suportada no navegador'] };
+  },
+
+  getTimeEntries: async (date?: string): Promise<TimeEntry[]> => {
+    let entries = getStoredTimeEntries();
+    if (date) {
+      entries = entries.filter(e => e.startTime.startsWith(date));
+    }
+    return entries.sort((a, b) => b.startTime.localeCompare(a.startTime));
+  },
+
+  startTracking: async (data: {
+    userId: string;
+    projectId: string;
+    appName: string;
+    processName: string;
+  }): Promise<TimeEntry> => {
+    const now = new Date().toISOString();
+    const entry: TimeEntry = {
+      id: generateId(),
+      ...data,
+      startTime: now,
+      endTime: null,
+      duration: 0,
+      status: 'manual',
+      isManuallyAdjusted: false,
+      syncedToServer: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const entries = getStoredTimeEntries();
+    entries.push(entry);
+    saveTimeEntries(entries);
+    return entry;
+  },
+
+  stopTracking: async (entryId: string): Promise<boolean> => {
+    const entries = getStoredTimeEntries();
+    const idx = entries.findIndex(e => e.id === entryId);
+    if (idx === -1) return false;
+    const endTime = new Date().toISOString();
+    entries[idx].endTime = endTime;
+    entries[idx].duration = Math.floor(
+      (new Date(endTime).getTime() - new Date(entries[idx].startTime).getTime()) / 1000
+    );
+    entries[idx].updatedAt = endTime;
+    saveTimeEntries(entries);
+    return true;
+  },
+
+  getSuggestion: async (_processName: string) => null,
+
+  getMonitoredApps: async () => [],
+  updateMonitoredApp: async () => false,
+  getConfig: async () => ({
+    inactivityTimeout: 5,
+    popupDelay: 2,
+    popupAutoClose: 30,
+    backupInterval: 60,
+    startWithWindows: false,
+    minimizeToTray: true,
+    showNotifications: false,
+  }),
+  updateConfig: async () => true,
+
+  minimizeToTray: () => {},
+  onActiveWindowChanged: () => {},
+  onUserInactive: () => {},
+  onUserActive: () => {},
+  removeAllListeners: () => {},
+};
