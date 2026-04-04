@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import PopupApp from './PopupApp';
 import { browserApi } from './browserApi';
+import { I18nProvider } from './i18nContext';
 import './index.css';
 
 // Type augmentation for electron API
@@ -19,6 +20,7 @@ declare global {
       getTimeEntries: (date?: string) => Promise<any[]>;
       startTracking: (data: any) => Promise<any>;
       stopTracking: (entryId: string) => Promise<any>;
+      deleteTimeEntry: (entryId: string) => Promise<any>;
       getSuggestion: (processName: string) => Promise<any>;
       onActiveWindowChanged: (callback: (data: any) => void) => void;
       onUserInactive: (callback: () => void) => void;
@@ -37,6 +39,8 @@ const isPopup = window.location.hash === '#popup' || window.location.search.incl
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {isPopup ? <PopupApp /> : <App />}
+    <I18nProvider>
+      {isPopup ? <PopupApp /> : <App />}
+    </I18nProvider>
   </React.StrictMode>
 );

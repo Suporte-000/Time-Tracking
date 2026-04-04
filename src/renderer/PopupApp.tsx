@@ -1,52 +1,41 @@
 import React, { useEffect, useState } from 'react';
 import ProjectPopup from './components/ProjectPopup';
+import { useI18n } from './i18nContext';
 
 const PopupApp: React.FC = () => {
+  const { t } = useI18n();
   const [appData, setAppData] = useState<{
     appName: string;
     processName: string;
   } | null>(null);
 
   useEffect(() => {
-    // Get popup data from query params or window name
     const params = new URLSearchParams(window.location.search);
-    const appName = params.get('appName') || 'Aplicativo Desconhecido';
+    const appName = params.get('appName') || t('popupApp.unknownApp');
     const processName = params.get('processName') || '';
-
     setAppData({ appName, processName });
   }, []);
 
   const handleSelect = async (projectId: string) => {
     if (!appData) return;
-
     try {
       await window.electron.startTracking({
         projectId,
         appName: appData.appName,
         processName: appData.processName,
       });
-
-      // Close popup window
       window.close();
     } catch (error) {
       console.error('Failed to start tracking:', error);
     }
   };
 
-  const handleDismiss = () => {
-    window.close();
-  };
+  const handleDismiss = () => { window.close(); };
 
-  if (!appData) {
-    return <div>Carregando...</div>;
-  }
+  if (!appData) return <div>{t('dashboard.loading')}</div>;
 
   return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      background: 'transparent',
-    }}>
+    <div style={{ width: '100vw', height: '100vh', background: 'transparent' }}>
       <ProjectPopup
         appName={appData.appName}
         processName={appData.processName}

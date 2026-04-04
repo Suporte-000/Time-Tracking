@@ -7,6 +7,8 @@ export interface Project {
   id: string;
   name: string;
   subproject?: string;
+  appName?: string;
+  processName?: string;
   color: string;
   createdAt: string;
   isActive: boolean;

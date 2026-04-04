@@ -127,6 +127,14 @@ export const browserApi = {
     return true;
   },
 
+  deleteTimeEntry: async (entryId: string): Promise<boolean> => {
+    const entries = getStoredTimeEntries();
+    const filtered = entries.filter(e => e.id !== entryId);
+    if (filtered.length === entries.length) return false;
+    saveTimeEntries(filtered);
+    return true;
+  },
+
   getSuggestion: async (_processName: string) => null,
 
   getMonitoredApps: async () => [

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import ProjectPopup from '../components/ProjectPopup';
 import { UI_COLORS } from '../../shared/colors';
+import { useI18n } from '../i18nContext';
 
 const PopupDemo: React.FC = () => {
+  const { t } = useI18n();
   const [showPopup, setShowPopup] = useState(false);
   const [lastTracked, setLastTracked] = useState<{ projectId: string; appName: string } | null>(null);
 
@@ -27,9 +29,9 @@ const PopupDemo: React.FC = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h2 style={{ color: UI_COLORS.text.primary, margin: '0 0 8px 0' }}>Popup Demo</h2>
+      <h2 style={{ color: UI_COLORS.text.primary, margin: '0 0 8px 0' }}>{t('popupDemo.title')}</h2>
       <p style={{ color: UI_COLORS.text.muted, marginTop: '0' }}>
-        Simule o popup de vinculação de projeto que aparece ao detectar um app monitorado.
+        {t('popupDemo.description')}
       </p>
 
       <div style={{
@@ -40,7 +42,7 @@ const PopupDemo: React.FC = () => {
         border: `1px solid ${UI_COLORS.border.primary}`,
       }}>
         <p style={{ fontSize: '14px', color: UI_COLORS.text.secondary, margin: '0 0 16px 0' }}>
-          Clique no botão abaixo para abrir o popup e vincular seu tempo a um projeto.
+          {t('popupDemo.instruction')}
         </p>
         <button
           onClick={() => setShowPopup(true)}
@@ -55,7 +57,7 @@ const PopupDemo: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          Abrir Popup de Vinculação
+          {t('popupDemo.openPopup')}
         </button>
 
         {lastTracked && (
@@ -67,7 +69,7 @@ const PopupDemo: React.FC = () => {
             border: `1px solid ${UI_COLORS.status.success}40`,
           }}>
             <span style={{ color: UI_COLORS.status.success, fontSize: '14px' }}>
-              ✓ Rastreamento iniciado com sucesso!
+              {t('popupDemo.success')}
             </span>
           </div>
         )}
