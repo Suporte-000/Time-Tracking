@@ -47,8 +47,19 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
   const loadData = async () => {
     try {
       const allProjects = await window.electron.getProjects();
-      setProjects(allProjects.filter((p: Project) => p.isActive));
+      const active = allProjects.filter((p: Project) => p.isActive);
       const suggested = await window.electron.getSuggestion(processName);
+
+      const available = active.filter((p: Project) => !activeProjectIds.has(p.id));
+      const hasSuggestion = suggested && !activeProjectIds.has(suggested.projectId);
+
+      // Nothing to show — dismiss immediately
+      if (!hasSuggestion && available.length === 0) {
+        onDismiss();
+        return;
+      }
+
+      setProjects(active);
       setSuggestion(suggested);
       if (suggested) setSelectedProjectId(suggested.projectId);
     } catch (error) { console.error('Failed to load popup data:', error); }
@@ -121,33 +132,32 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
         </div>
       )}
 
-      {/* Divider */}
-      <div style={{ padding: '10px 16px 6px', textAlign: 'center', fontSize: '11px', color: '#4A5568' }}>
-        {t('popup.orSelect')}
-      </div>
-
-      {/* Search */}
-      <div style={{ padding: '0 16px 10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0D1117', border: '1px solid #1E2A3A', borderRadius: '8px', padding: '8px 12px' }}>
-          <span style={{ color: '#4A5568', fontSize: '13px' }}>🔍</span>
-          <input
-            type="text"
-            placeholder={t('popup.search')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#E2E8F0', fontSize: '13px' }}
-          />
+      {/* Divider + Search — only show if there are other projects to pick from */}
+      {(availableProjects.length > 0 || searchTerm) && (
+        <div style={{ padding: '10px 16px 6px', textAlign: 'center', fontSize: '11px', color: '#4A5568' }}>
+          {t('popup.orSelect')}
         </div>
-      </div>
+      )}
+
+      {(availableProjects.length > 0 || searchTerm) && (
+        <div style={{ padding: '0 16px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0D1117', border: '1px solid #1E2A3A', borderRadius: '8px', padding: '8px 12px' }}>
+            <span style={{ color: '#4A5568', fontSize: '13px' }}>🔍</span>
+            <input
+              type="text"
+              placeholder={t('popup.search')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#E2E8F0', fontSize: '13px' }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Project list */}
-      <div style={{ maxHeight: '180px', overflowY: 'auto', padding: '0 16px 8px' }}>
-        {availableProjects.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '16px', color: '#4A5568', fontSize: '13px' }}>
-            {t('popup.noResults')}
-          </div>
-        ) : (
-          availableProjects.map(project => (
+      {availableProjects.length > 0 && (
+        <div style={{ maxHeight: '180px', overflowY: 'auto', padding: '0 16px 8px' }}>
+          {availableProjects.map(project => (
             <div
               key={project.id}
               onClick={() => setSelectedProjectId(project.id)}
@@ -172,9 +182,9 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
                 )}
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Footer buttons */}
       <div style={{ padding: '12px 16px', borderTop: '1px solid #1E2A3A', display: 'flex', gap: '10px' }}>
