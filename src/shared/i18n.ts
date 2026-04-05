@@ -88,9 +88,9 @@ const translations = {
     'pt-BR': 'Exportar CSV',
   },
   'dashboard.newProject': {
-    'en': '+ New Project',
-    'es': '+ Nuevo Proyecto',
-    'pt-BR': '+ Novo Projeto',
+    'en': '+ New Business',
+    'es': '+ Nuevo Negocio',
+    'pt-BR': '+ Novo Negócio',
   },
   'dashboard.loading': {
     'en': 'Loading...',
@@ -100,19 +100,19 @@ const translations = {
 
   // New Project Modal
   'project.new': {
-    'en': 'New Project',
-    'es': 'Nuevo Proyecto',
-    'pt-BR': 'Novo Projeto',
+    'en': 'New Business',
+    'es': 'Nuevo Negocio',
+    'pt-BR': 'Novo Negócio',
   },
   'project.name': {
-    'en': 'Project Name *',
-    'es': 'Nombre del Proyecto *',
-    'pt-BR': 'Nome do Projeto *',
+    'en': 'Business Name *',
+    'es': 'Nombre del Negocio *',
+    'pt-BR': 'Nome do Negócio *',
   },
   'project.namePlaceholder': {
-    'en': 'Ex: Project A',
-    'es': 'Ej: Proyecto A',
-    'pt-BR': 'Ex: Projeto A',
+    'en': 'Ex: Business A',
+    'es': 'Ej: Negocio A',
+    'pt-BR': 'Ex: Negócio A',
   },
   'project.subproject': {
     'en': 'Subproject (optional)',
@@ -125,14 +125,14 @@ const translations = {
     'pt-BR': 'Ex: Elétrica',
   },
   'project.create': {
-    'en': 'Create Project',
-    'es': 'Crear Proyecto',
-    'pt-BR': 'Criar Projeto',
+    'en': 'Create Business',
+    'es': 'Crear Negocio',
+    'pt-BR': 'Criar Negócio',
   },
   'project.createError': {
-    'en': 'Error creating project',
-    'es': 'Error al crear proyecto',
-    'pt-BR': 'Erro ao criar projeto',
+    'en': 'Error creating business',
+    'es': 'Error al crear negocio',
+    'pt-BR': 'Erro ao criar negócio',
   },
   'project.none': {
     'en': 'No project',
@@ -140,19 +140,19 @@ const translations = {
     'pt-BR': 'Sem projeto',
   },
   'project.registered': {
-    'en': 'Registered Projects',
-    'es': 'Proyectos Registrados',
-    'pt-BR': 'Projetos Cadastrados',
+    'en': 'Registered Businesses',
+    'es': 'Negocios Registrados',
+    'pt-BR': 'Negócios Cadastrados',
   },
   'project.noneYet': {
-    'en': 'No projects registered yet',
-    'es': 'Ningún proyecto registrado aún',
-    'pt-BR': 'Nenhum projeto cadastrado ainda',
+    'en': 'No businesses registered yet',
+    'es': 'Ningún negocio registrado aún',
+    'pt-BR': 'Nenhum negócio cadastrado ainda',
   },
   'project.noneCreateFirst': {
-    'en': 'No projects registered. Create a project first.',
-    'es': 'Ningún proyecto registrado. Cree un proyecto primero.',
-    'pt-BR': 'Nenhum projeto cadastrado. Crie um projeto primeiro.',
+    'en': 'No businesses registered. Create a business first.',
+    'es': 'Ningún negocio registrado. Cree un negocio primero.',
+    'pt-BR': 'Nenhum negócio cadastrado. Crie um negócio primeiro.',
   },
 
   // Timer

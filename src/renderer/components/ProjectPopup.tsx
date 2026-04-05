@@ -6,6 +6,7 @@ import { useI18n } from '../i18nContext';
 interface ProjectPopupProps {
   appName: string;
   processName: string;
+  activeProjectIds?: Set<string>;
   onSelect: (projectId: string) => void;
   onDismiss: () => void;
 }
@@ -13,6 +14,7 @@ interface ProjectPopupProps {
 const ProjectPopup: React.FC<ProjectPopupProps> = ({
   appName,
   processName,
+  activeProjectIds = new Set(),
   onSelect,
   onDismiss
 }) => {
@@ -44,8 +46,9 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
   const handleConfirm = () => { if (selectedProjectId) onSelect(selectedProjectId); };
 
   const filteredProjects = projects.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.subproject && p.subproject.toLowerCase().includes(searchTerm.toLowerCase()))
+    !activeProjectIds.has(p.id) &&
+    (p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.appName && p.appName.toLowerCase().includes(searchTerm.toLowerCase())))
   );
 
   return (
@@ -69,7 +72,6 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
             </div>
             <div style={{ fontSize: '14px', color: UI_COLORS.text.primary, fontWeight: '500' }}>
               {suggestion.projectName}
-              {suggestion.subproject && <span style={{ color: UI_COLORS.text.secondary, fontSize: '13px' }}>{' › '}{suggestion.subproject}</span>}
             </div>
             <div style={{ fontSize: '11px', color: UI_COLORS.text.muted, marginTop: '4px' }}>
               {t('popup.usedTimes').replace('{count}', String(suggestion.useCount))}
@@ -95,7 +97,7 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
                   <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: project.color, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '14px', fontWeight: '500', color: UI_COLORS.text.primary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{project.name}</div>
-                    {project.subproject && <div style={{ fontSize: '12px', color: UI_COLORS.text.secondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{project.subproject}</div>}
+                    {project.appName && <div style={{ fontSize: '12px', color: UI_COLORS.text.secondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>→ {project.appName}</div>}
                   </div>
                   {selectedProjectId === project.id && <div style={{ color: UI_COLORS.brand.accent, fontSize: '16px' }}>✓</div>}
                 </div>

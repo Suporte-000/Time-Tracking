@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { Project, TimeEntry, MonitoredApp } from '../../shared/types';
 import { PROJECT_COLORS } from '../../shared/colors';
 import { useI18n } from '../i18nContext';
+import ProjectPopup from '../components/ProjectPopup';
 import './Dashboard.css';
 
 const LOCALE_MAP: Record<string, string> = { 'en': 'en-US', 'es': 'es-ES', 'pt-BR': 'pt-BR' };
@@ -19,13 +20,25 @@ const Dashboard: React.FC = () => {
   const [newProjectApp, setNewProjectApp] = useState('');
   const [newProjectCustomApp, setNewProjectCustomApp] = useState('');
 
+
   // Timer state
   const [showStartModal, setShowStartModal] = useState(false);
   const [activeEntries, setActiveEntries] = useState<TimeEntry[]>([]);
   const [, setTick] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => { loadProjects(); loadTodayEntries(); loadMonitoredApps(); }, []);
+  // Virtual popup state — shows after 2 minutes to simulate app detection
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupApp, setPopupApp] = useState<{ appName: string; processName: string } | null>(null);
+  const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const POPUP_DELAY_MS = 2 * 60 * 1000; // 2 minutes
+
+  useEffect(() => {
+    loadProjects(); loadTodayEntries(); loadMonitoredApps();
+    // Schedule popup after 2 minutes (virtual simulation of app detection)
+    popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);
+    return () => { if (popupTimerRef.current) clearTimeout(popupTimerRef.current); };
+  }, []);
 
   useEffect(() => {
     if (activeEntries.length > 0) {
@@ -75,6 +88,32 @@ const Dashboard: React.FC = () => {
     catch (error) { console.error('Error stopping timer:', error); }
   };
 
+  const triggerPopup = () => {
+    // Prefer apps that are linked to a project so the popup can show the business name
+    const linkedApps = monitoredApps.filter(app =>
+      projects.some(p => p.processName && p.processName.toLowerCase() === app.processName.toLowerCase())
+    );
+    const pool = linkedApps.length > 0 ? linkedApps : monitoredApps;
+    const fallback = { name: 'Visual Studio Code', processName: 'Code' };
+    const app = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : fallback;
+    setPopupApp({ appName: app.name, processName: app.processName });
+    setShowPopup(true);
+  };
+
+  const handlePopupSelect = async (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project) await handleStartTimer(project);
+    setShowPopup(false);
+    // Reset timer so popup can appear again after another 2 minutes
+    popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);
+  };
+
+  const handlePopupDismiss = () => {
+    setShowPopup(false);
+    // Reset timer so popup can appear again after another 2 minutes
+    popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);
+  };
+
   const handleStopAll = async () => {
     for (const entry of activeEntries) { try { await window.electron.stopTracking(entry.id); } catch {} }
     setActiveEntries([]); await loadTodayEntries();
@@ -88,7 +127,7 @@ const Dashboard: React.FC = () => {
       const project = projects.find(p => p.id === entry.projectId);
       return [today, formatTime(entry.startTime), entry.endTime ? formatTime(entry.endTime) : '-', formatDuration(entry.duration), project?.name || t('project.none'), entry.appName, entry.status];
     });
-    const csvContent = [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `timetrack_${today}.csv`; link.click();
   };
@@ -133,7 +172,7 @@ const Dashboard: React.FC = () => {
   };
   const formatTime = (isoString: string): string => new Date(isoString).toLocaleTimeString(LOCALE_MAP[lang] || 'pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-  const activeProjectIds = new Set(activeEntries.map(e => e.projectId));
+  const activeProjectIds = new Set(activeEntries.map(e => e.projectId).filter((id): id is string => id !== null));
   const totalSeconds = timeEntries.reduce((sum, e) => {
     if (e.endTime) return sum + e.duration;
     const active = activeEntries.find(a => a.id === e.id);
@@ -310,6 +349,19 @@ const Dashboard: React.FC = () => {
         <div className="kpi-card"><div className="kpi-label">{t('kpi.breaks')}</div><div className="kpi-val">0m</div><div className="kpi-sub">{t('kpi.noBreaks')}</div></div>
         <div className="kpi-card"><div className="kpi-label">{t('kpi.noProject')}</div><div className="kpi-val">0h 0m</div><div className="kpi-sub">{t('kpi.unlinked')}</div></div>
       </div>
+
+      {/* Virtual popup — simulates app detection after 2 minutes */}
+      {showPopup && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <ProjectPopup
+            appName={popupApp?.appName ?? 'Unknown App'}
+            processName={popupApp?.processName ?? 'unknown'}
+            activeProjectIds={activeProjectIds}
+            onSelect={handlePopupSelect}
+            onDismiss={handlePopupDismiss}
+          />
+        </div>
+      )}
 
       {/* Project list */}
       <div className="section-label">{t('project.registered')}</div>

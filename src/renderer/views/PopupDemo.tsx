@@ -1,12 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ProjectPopup from '../components/ProjectPopup';
 import { UI_COLORS } from '../../shared/colors';
 import { useI18n } from '../i18nContext';
+import type { Project, TimeEntry } from '../../shared/types';
 
 const PopupDemo: React.FC = () => {
   const { t } = useI18n();
   const [showPopup, setShowPopup] = useState(false);
   const [lastTracked, setLastTracked] = useState<{ projectId: string; appName: string } | null>(null);
+  const [activeProjectIds, setActiveProjectIds] = useState<Set<string>>(new Set());
+  const [allTracking, setAllTracking] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const [projects, entries] = await Promise.all([
+        window.electron.getProjects(),
+        window.electron.getTimeEntries(today),
+      ]);
+      const active = new Set<string>((entries as TimeEntry[]).filter((e: TimeEntry) => !e.endTime).map((e: TimeEntry) => e.projectId));
+      setActiveProjectIds(active);
+      setAllTracking((projects as Project[]).length > 0 && (projects as Project[]).every((p: Project) => active.has(p.id)));
+    };
+    load();
+  }, [showPopup]);
+
+  const handleOpenPopup = () => {
+    if (allTracking) return;
+    setShowPopup(true);
+  };
 
   const handleSelect = async (projectId: string) => {
     try {
@@ -45,20 +67,26 @@ const PopupDemo: React.FC = () => {
           {t('popupDemo.instruction')}
         </p>
         <button
-          onClick={() => setShowPopup(true)}
+          onClick={handleOpenPopup}
+          disabled={allTracking}
           style={{
             padding: '12px 24px',
-            background: UI_COLORS.brand.accent,
+            background: allTracking ? UI_COLORS.bg.hover : UI_COLORS.brand.accent,
             border: 'none',
             borderRadius: '8px',
-            color: '#FFFFFF',
+            color: allTracking ? UI_COLORS.text.muted : '#FFFFFF',
             fontSize: '14px',
             fontWeight: '600',
-            cursor: 'pointer',
+            cursor: allTracking ? 'not-allowed' : 'pointer',
           }}
         >
           {t('popupDemo.openPopup')}
         </button>
+        {allTracking && (
+          <div style={{ marginTop: '12px', fontSize: '13px', color: UI_COLORS.text.muted }}>
+            All businesses are already being tracked.
+          </div>
+        )}
 
         {lastTracked && (
           <div style={{
@@ -92,6 +120,7 @@ const PopupDemo: React.FC = () => {
           <ProjectPopup
             appName="Browser (Manual)"
             processName="browser"
+            activeProjectIds={activeProjectIds}
             onSelect={handleSelect}
             onDismiss={handleDismiss}
           />

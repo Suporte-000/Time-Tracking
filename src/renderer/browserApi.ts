@@ -135,7 +135,19 @@ export const browserApi = {
     return true;
   },
 
-  getSuggestion: async (_processName: string) => null,
+  getSuggestion: async (processName: string) => {
+    const projects = getStoredProjects().filter(p => p.isActive);
+    const matched = projects.find(p =>
+      p.processName && p.processName.toLowerCase() === processName.toLowerCase()
+    );
+    if (!matched) return null;
+    return {
+      projectId: matched.id,
+      projectName: matched.name,
+      subproject: matched.appName || null,
+      useCount: 1,
+    };
+  },
 
   getMonitoredApps: async () => [
     { id: 'app-1', name: 'Visual Studio Code', processName: 'Code', icon: '💻', isEnabled: true, createdAt: '' },
