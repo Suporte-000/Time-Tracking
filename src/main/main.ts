@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } from 'electron';
 import path from 'path';
 import { WindowMonitor } from './services/windowMonitor';
 import { ImprovedActivityMonitor } from './services/activityMonitorImproved';
@@ -267,6 +267,39 @@ class TimeTrackApp {
   private createPopupWindow(appName: string, processName: string) {
     if (this.popupWindow && !this.popupWindow.isDestroyed()) {
       this.popupWindow.focus();
+      return;
+    }
+
+    const isMinimized = !this.mainWindow || this.mainWindow.isMinimized() || !this.mainWindow.isVisible();
+
+    if (isMinimized && Notification.isSupported()) {
+      const notification = new Notification({
+        title: 'TimeTrack — App Detectado',
+        body: `Você está usando ${appName} há 2 minutos. Clique para vincular ao projeto.`,
+        silent: false,
+      });
+
+      notification.on('click', () => {
+        this.mainWindow?.show();
+        this.mainWindow?.focus();
+        this.createPopupWindow(appName, processName);
+      });
+
+      // Also show balloon on Windows tray
+      if (process.platform === 'win32' && this.tray) {
+        this.tray.displayBalloon({
+          title: 'TimeTrack — App Detectado',
+          content: `Você está usando ${appName} há 2 minutos. Clique para vincular.`,
+          iconType: 'info',
+        });
+        this.tray.once('balloon-click', () => {
+          this.mainWindow?.show();
+          this.mainWindow?.focus();
+          this.createPopupWindow(appName, processName);
+        });
+      }
+
+      notification.show();
       return;
     }
 
