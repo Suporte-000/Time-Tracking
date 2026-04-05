@@ -20,7 +20,7 @@ const APP_ICONS: Record<string, string> = {
   'browser': '🌐',
 };
 
-const getAppIcon = (name: string) => APP_ICONS[name.toLowerCase()] ?? '📦';
+const getAppIcon = (name: string) => APP_ICONS[name.toLowerCase()] ?? '🖥️';
 
 const ProjectPopup: React.FC<ProjectPopupProps> = ({
   appName,

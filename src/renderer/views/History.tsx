@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { TimeEntry, Project, DailySummary } from '../../shared/types';
-import { UI_COLORS } from '../../shared/colors';
+import { TimeEntry, Project } from '../../shared/types';
 import { useI18n } from '../i18nContext';
 
 const LOCALE_MAP: Record<string, string> = { 'en': 'en-US', 'es': 'es-ES', 'pt-BR': 'pt-BR' };
 
+const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  auto:     { label: 'Auto',     bg: '#1a3a2a', color: '#4ade80' },
+  manual:   { label: 'Manual',   bg: '#1a2a3a', color: '#60a5fa' },
+  paused:   { label: 'Pausa',    bg: '#2a1a3a', color: '#a78bfa' },
+  adjusted: { label: 'Ajustado', bg: '#3a2a1a', color: '#f59e0b' },
+};
+
 const History: React.FC = () => {
   const { t, lang } = useI18n();
+  const locale = LOCALE_MAP[lang] || 'pt-BR';
+
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
-  const [summary, setSummary] = useState<DailySummary | null>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadData(); }, [selectedDate]);
@@ -26,165 +31,171 @@ const History: React.FC = () => {
       ]);
       setTimeEntries(entries);
       setProjects(allProjects);
-      calculateSummary(entries);
-    } catch (error) {
-      console.error('Failed to load history:', error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
-  const calculateSummary = (entries: TimeEntry[]) => {
-    const totalTime = entries.reduce((acc, entry) => acc + entry.duration, 0);
-    const projectCount = new Set(entries.map(e => e.projectId).filter(Boolean)).size;
-    const unlinkedTime = entries.filter(e => !e.projectId).reduce((acc, e) => acc + e.duration, 0);
-    const pauseTime = entries.filter(e => e.status === 'paused').reduce((acc, e) => acc + e.duration, 0);
-    setSummary({ date: selectedDate, totalTime, projectCount, entryCount: entries.length, unlinkedTime, pauseTime });
+  // Last 5 days as tabs
+  const dateTabs = Array.from({ length: 5 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    return d.toISOString().split('T')[0];
+  });
+
+  const formatTabLabel = (dateStr: string): string => {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const d = new Date(dateStr + 'T12:00:00');
+    const dayMonth = d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
+    if (dateStr === today) return `${t('history.today')}, ${dayMonth}`;
+    if (dateStr === yesterday) return `${t('history.yesterday')}, ${dayMonth}`;
+    const weekday = d.toLocaleDateString(locale, { weekday: 'short' });
+    return `${weekday.charAt(0).toUpperCase() + weekday.slice(1, 3)}, ${dayMonth}`;
   };
 
-  const formatDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    if (minutes > 0) return `${minutes}m ${secs}s`;
-    return `${secs}s`;
+  const formatTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+
+  const formatDuration = (secs: number): string => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
   };
 
-  const formatTime = (isoString: string): string =>
-    new Date(isoString).toLocaleTimeString(LOCALE_MAP[lang] || 'pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-  const getProjectById = (id: string | null): Project | undefined => id ? projects.find(p => p.id === id) : undefined;
+  const getProject = (id: string | null) => id ? projects.find(p => p.id === id) : undefined;
 
   const handleExportCSV = () => {
-    const headers = [t('csv.date'), t('csv.start'), t('csv.end'), t('csv.duration'), t('csv.project'), t('csv.subproject'), t('csv.app'), t('csv.status')];
-    const rows = timeEntries.map(entry => {
-      const project = getProjectById(entry.projectId);
-      return [selectedDate, formatTime(entry.startTime), entry.endTime ? formatTime(entry.endTime) : '-', formatDuration(entry.duration), project?.name || t('project.none'), project?.subproject || '-', entry.appName, entry.status];
+    if (timeEntries.length === 0) return;
+    const headers = ['Horário início', 'Horário fim', 'Aplicativo', 'Projeto', 'Duração (s)', 'Origem'];
+    const rows = timeEntries.map(e => {
+      const p = getProject(e.projectId);
+      return [formatTime(e.startTime), e.endTime ? formatTime(e.endTime) : '-', e.appName, p?.name || '-', e.duration, e.status];
     });
-    const csvContent = [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `timetrack_${selectedDate}.csv`; link.click();
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `timetrack_${selectedDate}.csv`; a.click();
   };
 
-  const handleDeleteEntry = async (entryId: string) => {
+  const handleDeleteEntry = async (id: string) => {
     if (!confirm(t('history.deleteConfirm'))) return;
-    try {
-      await window.electron.deleteTimeEntry(entryId);
-      await loadData();
-    } catch (error) { console.error('Failed to delete entry:', error); }
-  };
-
-  const handleDeleteAll = async () => {
-    if (!confirm(t('history.deleteAllConfirm'))) return;
-    for (const entry of timeEntries) {
-      try { await window.electron.deleteTimeEntry(entry.id); } catch {}
-    }
+    await window.electron.deleteTimeEntry(id);
     await loadData();
   };
 
-  const changeDate = (days: number) => {
-    const date = new Date(selectedDate);
-    date.setDate(date.getDate() + days);
-    setSelectedDate(date.toISOString().split('T')[0]);
-  };
-
-  if (loading) {
-    return (
-      <div style={{ padding: '30px', textAlign: 'center' }}>
-        <div style={{ color: UI_COLORS.text.secondary }}>{t('history.loading')}</div>
-      </div>
-    );
-  }
+  // KPIs
+  const totalSecs = timeEntries.reduce((s, e) => s + e.duration, 0);
+  const projectCount = new Set(timeEntries.map(e => e.projectId).filter(Boolean)).size;
+  const linkedCount = timeEntries.filter(e => e.projectId).length;
+  const linkedPct = timeEntries.length > 0 ? Math.round((linkedCount / timeEntries.length) * 100) : 0;
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '600', color: UI_COLORS.text.primary }}>{t('history.title')}</h2>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={handleDeleteAll} disabled={timeEntries.length === 0}
-            style={{ padding: '10px 20px', background: 'transparent', border: `1px solid ${timeEntries.length > 0 ? UI_COLORS.status.error : UI_COLORS.border.secondary}`, borderRadius: '8px', color: timeEntries.length > 0 ? UI_COLORS.status.error : UI_COLORS.text.muted, fontSize: '14px', fontWeight: '600', cursor: timeEntries.length > 0 ? 'pointer' : 'not-allowed' }}>
-            🗑 {t('history.deleteAll')}
-          </button>
-          <button onClick={handleExportCSV} disabled={timeEntries.length === 0}
-            style={{ padding: '10px 20px', background: timeEntries.length > 0 ? UI_COLORS.brand.accent : UI_COLORS.bg.hover, border: 'none', borderRadius: '8px', color: timeEntries.length > 0 ? '#FFFFFF' : UI_COLORS.text.muted, fontSize: '14px', fontWeight: '600', cursor: timeEntries.length > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            📊 {t('history.exportCsv')}
-          </button>
+    <div style={{ padding: '24px 28px', height: '100%', overflowY: 'auto' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: '#E2E8F0' }}>{t('history.title')}</h2>
+          <div style={{ fontSize: '13px', color: '#718096', marginTop: '4px' }}>{t('history.subtitle')}</div>
         </div>
+        <button onClick={handleExportCSV} disabled={timeEntries.length === 0}
+          style={{ padding: '9px 18px', background: timeEntries.length > 0 ? '#1FB8A0' : '#1E2A3A', border: 'none', borderRadius: '8px', color: timeEntries.length > 0 ? '#fff' : '#4A5568', fontSize: '13px', fontWeight: '600', cursor: timeEntries.length > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          ⬇ {t('history.exportCsv')}
+        </button>
       </div>
 
-      {/* Date Navigator */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '24px', padding: '16px', background: UI_COLORS.bg.card, borderRadius: '12px', border: `1px solid ${UI_COLORS.border.primary}` }}>
-        <button onClick={() => changeDate(-1)} style={{ padding: '8px 12px', background: UI_COLORS.bg.hover, border: `1px solid ${UI_COLORS.border.secondary}`, borderRadius: '6px', color: UI_COLORS.text.primary, cursor: 'pointer', fontSize: '16px' }}>←</button>
-        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} max={new Date().toISOString().split('T')[0]}
-          style={{ padding: '10px 16px', background: UI_COLORS.bg.primary, border: `1px solid ${UI_COLORS.border.primary}`, borderRadius: '8px', color: UI_COLORS.text.primary, fontSize: '14px', fontWeight: '500' }} />
-        <button onClick={() => changeDate(1)} disabled={selectedDate >= new Date().toISOString().split('T')[0]}
-          style={{ padding: '8px 12px', background: UI_COLORS.bg.hover, border: `1px solid ${UI_COLORS.border.secondary}`, borderRadius: '6px', color: UI_COLORS.text.primary, cursor: selectedDate < new Date().toISOString().split('T')[0] ? 'pointer' : 'not-allowed', fontSize: '16px', opacity: selectedDate >= new Date().toISOString().split('T')[0] ? 0.5 : 1 }}>→</button>
+      {/* Date tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {dateTabs.map(date => {
+          const active = date === selectedDate;
+          return (
+            <button key={date} onClick={() => setSelectedDate(date)}
+              style={{ padding: '8px 16px', borderRadius: '20px', border: `1px solid ${active ? '#1FB8A0' : '#1E2A3A'}`, background: active ? '#1FB8A0' : 'transparent', color: active ? '#fff' : '#A0AEC0', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', transition: 'all 0.15s' }}>
+              {formatTabLabel(date)}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Summary Cards */}
-      {summary && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-          <div style={{ padding: '20px', background: UI_COLORS.bg.card, borderRadius: '12px', border: `1px solid ${UI_COLORS.border.primary}` }}>
-            <div style={{ fontSize: '12px', color: UI_COLORS.text.muted, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('history.totalTime')}</div>
-            <div style={{ fontSize: '28px', fontWeight: '700', color: UI_COLORS.brand.accent }}>{formatDuration(summary.totalTime)}</div>
+      {/* KPI cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+        {[
+          { label: t('history.totalTime'), value: formatDuration(totalSecs), color: '#4ade80' },
+          { label: t('history.projects'),  value: String(projectCount),       color: '#E2E8F0' },
+          { label: t('history.entries'),   value: String(timeEntries.length), color: '#E2E8F0' },
+          { label: t('history.linked'),    value: `${linkedPct}%`,            color: '#1FB8A0' },
+        ].map(kpi => (
+          <div key={kpi.label} style={{ padding: '18px 20px', background: '#161C26', borderRadius: '12px', border: '1px solid #1E2A3A' }}>
+            <div style={{ fontSize: '11px', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '8px' }}>{kpi.label}</div>
+            <div style={{ fontSize: '26px', fontWeight: '700', color: kpi.color }}>{kpi.value}</div>
           </div>
-          <div style={{ padding: '20px', background: UI_COLORS.bg.card, borderRadius: '12px', border: `1px solid ${UI_COLORS.border.primary}` }}>
-            <div style={{ fontSize: '12px', color: UI_COLORS.text.muted, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('history.projects')}</div>
-            <div style={{ fontSize: '28px', fontWeight: '700', color: UI_COLORS.text.primary }}>{summary.projectCount}</div>
-          </div>
-          <div style={{ padding: '20px', background: UI_COLORS.bg.card, borderRadius: '12px', border: `1px solid ${UI_COLORS.border.primary}` }}>
-            <div style={{ fontSize: '12px', color: UI_COLORS.text.muted, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('history.entries')}</div>
-            <div style={{ fontSize: '28px', fontWeight: '700', color: UI_COLORS.text.primary }}>{summary.entryCount}</div>
-          </div>
-          <div style={{ padding: '20px', background: UI_COLORS.bg.card, borderRadius: '12px', border: `1px solid ${UI_COLORS.border.primary}` }}>
-            <div style={{ fontSize: '12px', color: UI_COLORS.text.muted, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('history.noProject')}</div>
-            <div style={{ fontSize: '28px', fontWeight: '700', color: UI_COLORS.status.warning }}>{formatDuration(summary.unlinkedTime)}</div>
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* Time Entries List */}
-      <div style={{ background: UI_COLORS.bg.card, borderRadius: '12px', border: `1px solid ${UI_COLORS.border.primary}`, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${UI_COLORS.border.primary}`, fontWeight: '600', fontSize: '14px', color: UI_COLORS.text.primary }}>
-          {t('history.timeEntries')} ({timeEntries.length})
+      {/* Table */}
+      <div style={{ background: '#161C26', borderRadius: '12px', border: '1px solid #1E2A3A', overflow: 'hidden' }}>
+        {/* Column headers */}
+        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 90px 100px 40px', padding: '10px 20px', borderBottom: '1px solid #1E2A3A' }}>
+          {['HORÁRIO', 'APLICATIVO', 'PROJETO', 'DURAÇÃO', 'ORIGEM', ''].map(h => (
+            <div key={h} style={{ fontSize: '11px', fontWeight: '600', color: '#4A5568', letterSpacing: '0.6px' }}>{h}</div>
+          ))}
         </div>
 
-        {timeEntries.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: UI_COLORS.text.muted }}>{t('history.noEntries')}</div>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#718096', fontSize: '14px' }}>{t('history.loading')}</div>
+        ) : timeEntries.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#4A5568', fontSize: '14px' }}>{t('history.noEntries')}</div>
         ) : (
-          <div>
-            {timeEntries.map((entry) => {
-              const project = getProjectById(entry.projectId);
-              return (
-                <div key={entry.id} style={{ padding: '16px 20px', borderBottom: `1px solid ${UI_COLORS.border.primary}`, display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ width: '4px', height: '40px', borderRadius: '2px', background: project?.color || UI_COLORS.text.muted, flexShrink: 0 }} />
-                  <div style={{ minWidth: '100px' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: UI_COLORS.text.primary }}>{formatTime(entry.startTime)}</div>
-                    <div style={{ fontSize: '12px', color: UI_COLORS.text.muted }}>{entry.endTime ? formatTime(entry.endTime) : t('history.ongoing')}</div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: UI_COLORS.text.primary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {project?.name || t('project.none')}
-                      {project?.subproject && <span style={{ color: UI_COLORS.text.secondary, fontWeight: '400' }}>{' › '}{project.subproject}</span>}
-                    </div>
-                    <div style={{ fontSize: '12px', color: UI_COLORS.text.muted, marginTop: '2px' }}>{entry.appName}</div>
-                  </div>
-                  <div style={{ minWidth: '80px', textAlign: 'right' }}>
-                    <div style={{ fontSize: '16px', fontWeight: '700', color: UI_COLORS.brand.accent }}>{formatDuration(entry.duration)}</div>
-                    <div style={{ fontSize: '10px', color: UI_COLORS.text.muted, textTransform: 'uppercase', marginTop: '2px' }}>{entry.status}</div>
-                  </div>
-                  <button onClick={() => handleDeleteEntry(entry.id)}
-                    style={{ padding: '6px 8px', background: 'transparent', border: 'none', color: UI_COLORS.text.muted, fontSize: '16px', cursor: 'pointer', flexShrink: 0, borderRadius: '4px' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = UI_COLORS.status.error; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = UI_COLORS.text.muted; }}
-                    title={t('history.delete')}>
-                    🗑
-                  </button>
+          timeEntries.map((entry, i) => {
+            const project = getProject(entry.projectId);
+            const badge = STATUS_BADGE[entry.status] || STATUS_BADGE['manual'];
+            const isLast = i === timeEntries.length - 1;
+            return (
+              <div key={entry.id}
+                style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 90px 100px 40px', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid #1E2A3A', alignItems: 'center', transition: 'background 0.1s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#111722'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+
+                {/* Time range */}
+                <div style={{ fontSize: '13px', color: '#60a5fa', fontWeight: '500' }}>
+                  {formatTime(entry.startTime)} – {entry.endTime ? formatTime(entry.endTime) : '…'}
                 </div>
-              );
-            })}
-          </div>
+
+                {/* App */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: project?.color || '#4A5568', flexShrink: 0 }} />
+                  <span style={{ fontSize: '14px', color: entry.appName ? '#E2E8F0' : '#4A5568' }}>
+                    {entry.appName || '—'}
+                  </span>
+                </div>
+
+                {/* Project */}
+                <div style={{ fontSize: '14px', color: project ? '#E2E8F0' : '#4A5568', fontWeight: project ? '500' : '400' }}>
+                  {project?.name || '—'}
+                </div>
+
+                {/* Duration */}
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#E2E8F0' }}>
+                  {formatDuration(entry.duration)}
+                </div>
+
+                {/* Status badge */}
+                <div>
+                  <span style={{ padding: '3px 10px', borderRadius: '6px', background: badge.bg, color: badge.color, fontSize: '12px', fontWeight: '600' }}>
+                    {badge.label}
+                  </span>
+                </div>
+
+                {/* Delete */}
+                <button onClick={() => handleDeleteEntry(entry.id)}
+                  style={{ background: 'transparent', border: 'none', color: '#4A5568', fontSize: '15px', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = '#E85D75'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = '#4A5568'; }}>
+                  🗑
+                </button>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

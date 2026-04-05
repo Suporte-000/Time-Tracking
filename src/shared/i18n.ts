@@ -289,6 +289,26 @@ const translations = {
   },
 
   // === History ===
+  'history.today': {
+    'en': 'Today',
+    'es': 'Hoy',
+    'pt-BR': 'Hoje',
+  },
+  'history.yesterday': {
+    'en': 'Yesterday',
+    'es': 'Ayer',
+    'pt-BR': 'Ontem',
+  },
+  'history.subtitle': {
+    'en': 'Detailed activity log',
+    'es': 'Registro detallado de actividades',
+    'pt-BR': 'Registro detalhado de atividades',
+  },
+  'history.linked': {
+    'en': 'Linked',
+    'es': 'Vinculado',
+    'pt-BR': 'Vinculado',
+  },
   'history.title': {
     'en': 'Detailed History',
     'es': 'Historial Detallado',
