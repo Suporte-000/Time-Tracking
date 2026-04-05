@@ -149,24 +149,53 @@ export const browserApi = {
     };
   },
 
-  getMonitoredApps: async () => [
-    { id: 'app-1', name: 'Visual Studio Code', processName: 'Code', icon: '💻', isEnabled: true, createdAt: '' },
-    { id: 'app-2', name: 'Google Chrome', processName: 'chrome', icon: '🌐', isEnabled: true, createdAt: '' },
-    { id: 'app-3', name: 'Figma', processName: 'Figma', icon: '🎨', isEnabled: true, createdAt: '' },
-    { id: 'app-4', name: 'Microsoft Teams', processName: 'Teams', icon: '💬', isEnabled: true, createdAt: '' },
-    { id: 'app-5', name: 'Notion', processName: 'Notion', icon: '📝', isEnabled: true, createdAt: '' },
-  ],
-  updateMonitoredApp: async () => false,
-  getConfig: async () => ({
-    inactivityTimeout: 5,
-    popupDelay: 2,
-    popupAutoClose: 30,
-    backupInterval: 60,
-    startWithWindows: false,
-    minimizeToTray: true,
-    showNotifications: false,
-  }),
-  updateConfig: async () => true,
+  getMonitoredApps: async () => {
+    const stored = localStorage.getItem('timetrack_monitored_apps');
+    if (stored) return JSON.parse(stored);
+    const defaults = [
+      { id: 'app-1', name: 'Visual Studio Code', processName: 'Code',   icon: '💻', isEnabled: true, createdAt: '' },
+      { id: 'app-2', name: 'Google Chrome',       processName: 'chrome', icon: '🌐', isEnabled: true, createdAt: '' },
+      { id: 'app-3', name: 'Figma',               processName: 'Figma',  icon: '🎨', isEnabled: true, createdAt: '' },
+      { id: 'app-4', name: 'Microsoft Teams',     processName: 'Teams',  icon: '💬', isEnabled: true, createdAt: '' },
+      { id: 'app-5', name: 'Notion',              processName: 'Notion', icon: '📝', isEnabled: true, createdAt: '' },
+    ];
+    localStorage.setItem('timetrack_monitored_apps', JSON.stringify(defaults));
+    return defaults;
+  },
+
+  updateMonitoredApp: async (app: { id: string;[key: string]: unknown }) => {
+    const stored = localStorage.getItem('timetrack_monitored_apps');
+    const apps = stored ? JSON.parse(stored) : [];
+    const idx = apps.findIndex((a: { id: string }) => a.id === app.id);
+    if (idx >= 0) {
+      apps[idx] = app;
+    } else {
+      apps.push(app);
+    }
+    localStorage.setItem('timetrack_monitored_apps', JSON.stringify(apps));
+    return true;
+  },
+
+  getConfig: async () => {
+    const stored = localStorage.getItem('timetrack_config');
+    if (stored) return JSON.parse(stored);
+    const defaults = {
+      inactivityTimeout: 5,
+      popupDelay: 2,
+      popupAutoClose: 30,
+      backupInterval: 60,
+      startWithWindows: false,
+      minimizeToTray: true,
+      showNotifications: false,
+    };
+    localStorage.setItem('timetrack_config', JSON.stringify(defaults));
+    return defaults;
+  },
+
+  updateConfig: async (config: object) => {
+    localStorage.setItem('timetrack_config', JSON.stringify(config));
+    return true;
+  },
 
   minimizeToTray: () => {},
   onActiveWindowChanged: () => {},

@@ -135,8 +135,8 @@ const History: React.FC = () => {
       {/* Table */}
       <div style={{ background: '#161C26', borderRadius: '12px', border: '1px solid #1E2A3A', overflow: 'hidden' }}>
         {/* Column headers */}
-        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 90px 100px 40px', padding: '10px 20px', borderBottom: '1px solid #1E2A3A' }}>
-          {['HORÁRIO', 'APLICATIVO', 'PROJETO', 'DURAÇÃO', 'ORIGEM', ''].map(h => (
+        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 90px 100px', padding: '10px 20px', borderBottom: '1px solid #1E2A3A' }}>
+          {['HORÁRIO', 'APLICATIVO', 'PROJETO', 'DURAÇÃO', 'ORIGEM'].map(h => (
             <div key={h} style={{ fontSize: '11px', fontWeight: '600', color: '#4A5568', letterSpacing: '0.6px' }}>{h}</div>
           ))}
         </div>
@@ -152,7 +152,7 @@ const History: React.FC = () => {
             const isLast = i === timeEntries.length - 1;
             return (
               <div key={entry.id}
-                style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 90px 100px 40px', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid #1E2A3A', alignItems: 'center', transition: 'background 0.1s' }}
+                style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 90px 100px', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid #1E2A3A', alignItems: 'center', transition: 'background 0.1s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#111722'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
 
@@ -186,13 +186,6 @@ const History: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Delete */}
-                <button onClick={() => handleDeleteEntry(entry.id)}
-                  style={{ background: 'transparent', border: 'none', color: '#4A5568', fontSize: '15px', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#E85D75'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = '#4A5568'; }}>
-                  🗑
-                </button>
               </div>
             );
           })
