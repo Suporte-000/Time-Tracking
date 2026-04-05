@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ProjectPopup from '../components/ProjectPopup';
 import { UI_COLORS } from '../../shared/colors';
 import { useI18n } from '../i18nContext';
@@ -10,6 +10,29 @@ const PopupDemo: React.FC = () => {
   const [lastTracked, setLastTracked] = useState<{ projectId: string; appName: string } | null>(null);
   const [activeProjectIds, setActiveProjectIds] = useState<Set<string>>(new Set());
   const [allTracking, setAllTracking] = useState(false);
+  const [detectedApp, setDetectedApp] = useState<{ appName: string; processName: string } | null>(null);
+  const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const POPUP_DELAY_MS = 2 * 60 * 1000;
+
+  const scheduleAutoPopup = (projects: Project[], active: Set<string>) => {
+    if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+    autoTimerRef.current = setTimeout(async () => {
+      const allDone = projects.length > 0 && projects.every(p => active.has(p.id));
+      if (allDone) return;
+      const apps = await window.electron.getMonitoredApps();
+      const linked = apps.filter((a: { processName: string }) =>
+        projects.some(p => p.processName && p.processName.toLowerCase() === a.processName.toLowerCase())
+      );
+      const pool = linked.length > 0 ? linked : apps;
+      const app = pool[Math.floor(Math.random() * pool.length)] ?? { name: 'Visual Studio Code', processName: 'Code' };
+      setDetectedApp({ appName: app.name, processName: app.processName });
+      setShowPopup(true);
+    }, POPUP_DELAY_MS);
+  };
+
+  useEffect(() => {
+    return () => { if (autoTimerRef.current) clearTimeout(autoTimerRef.current); };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -20,7 +43,9 @@ const PopupDemo: React.FC = () => {
       ]);
       const active = new Set<string>((entries as TimeEntry[]).filter((e: TimeEntry) => !e.endTime).map((e: TimeEntry) => e.projectId));
       setActiveProjectIds(active);
-      setAllTracking((projects as Project[]).length > 0 && (projects as Project[]).every((p: Project) => active.has(p.id)));
+      const allDone = (projects as Project[]).length > 0 && (projects as Project[]).every((p: Project) => active.has(p.id));
+      setAllTracking(allDone);
+      scheduleAutoPopup(projects as Project[], active);
     };
     load();
   }, [showPopup]);
@@ -56,8 +81,33 @@ const PopupDemo: React.FC = () => {
         {t('popupDemo.description')}
       </p>
 
+      {/* How it works */}
       <div style={{
         marginTop: '20px',
+        padding: '18px 20px',
+        background: UI_COLORS.bg.card,
+        borderRadius: '10px',
+        border: `1px solid ${UI_COLORS.border.primary}`,
+      }}>
+        <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '1px', color: UI_COLORS.brand.accent, marginBottom: '12px' }}>
+          {t('popupDemo.howTitle')}
+        </div>
+        {[
+          t('popupDemo.step1'),
+          t('popupDemo.step2'),
+          t('popupDemo.step3'),
+          t('popupDemo.step4'),
+          t('popupDemo.step5'),
+        ].map((step, i) => (
+          <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '8px', fontSize: '13px', color: UI_COLORS.text.secondary }}>
+            <span style={{ color: UI_COLORS.text.muted, flexShrink: 0 }}>{i + 1}.</span>
+            <span>{step}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{
+        marginTop: '16px',
         padding: '20px',
         background: UI_COLORS.bg.card,
         borderRadius: '10px',
@@ -118,8 +168,8 @@ const PopupDemo: React.FC = () => {
           zIndex: 1000,
         }}>
           <ProjectPopup
-            appName="Browser (Manual)"
-            processName="browser"
+            appName={detectedApp?.appName ?? 'Browser (Manual)'}
+            processName={detectedApp?.processName ?? 'browser'}
             activeProjectIds={activeProjectIds}
             onSelect={handleSelect}
             onDismiss={handleDismiss}

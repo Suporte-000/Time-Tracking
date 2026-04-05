@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Project, AppSuggestion } from '../../shared/types';
-import { UI_COLORS } from '../../shared/colors';
 import { useI18n } from '../i18nContext';
 
 interface ProjectPopupProps {
@@ -11,12 +10,24 @@ interface ProjectPopupProps {
   onDismiss: () => void;
 }
 
+const APP_ICONS: Record<string, string> = {
+  'visual studio code': '💻', 'code': '💻',
+  'google chrome': '🌐', 'chrome': '🌐',
+  'figma': '🎨',
+  'microsoft teams': '💬', 'teams': '💬',
+  'notion': '📝',
+  'timetrack': '⏱',
+  'browser': '🌐',
+};
+
+const getAppIcon = (name: string) => APP_ICONS[name.toLowerCase()] ?? '📦';
+
 const ProjectPopup: React.FC<ProjectPopupProps> = ({
   appName,
   processName,
   activeProjectIds = new Set(),
   onSelect,
-  onDismiss
+  onDismiss,
 }) => {
   const { t } = useI18n();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -43,80 +54,155 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
     } catch (error) { console.error('Failed to load popup data:', error); }
   };
 
-  const handleConfirm = () => { if (selectedProjectId) onSelect(selectedProjectId); };
-
-  const filteredProjects = projects.filter(p =>
+  const availableProjects = projects.filter(p =>
     !activeProjectIds.has(p.id) &&
     (p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.appName && p.appName.toLowerCase().includes(searchTerm.toLowerCase())))
+      (p.appName && p.appName.toLowerCase().includes(searchTerm.toLowerCase())))
   );
 
+  const suggestionProject = suggestion ? projects.find(p => p.id === suggestion.projectId) : null;
+
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ width: '360px', background: UI_COLORS.bg.card, borderRadius: '12px', border: `1px solid ${UI_COLORS.border.primary}`, boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)', overflow: 'hidden' }}>
-        {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${UI_COLORS.border.primary}`, background: UI_COLORS.bg.secondary }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: UI_COLORS.text.primary }}>{t('popup.linkProject')}</h3>
-            <button onClick={onDismiss} style={{ background: 'transparent', border: 'none', color: UI_COLORS.text.muted, fontSize: '20px', cursor: 'pointer', padding: '0', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-          </div>
-          <div style={{ fontSize: '13px', color: UI_COLORS.text.secondary }}>{t('popup.detected')}: <strong>{appName}</strong></div>
-          <div style={{ fontSize: '11px', color: UI_COLORS.text.muted, marginTop: '4px' }}>{t('popup.autoClose')} {countdown}s</div>
+    <div style={{
+      width: '340px',
+      background: '#161C26',
+      borderRadius: '14px',
+      border: '1px solid #1E2A3A',
+      boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+      overflow: 'hidden',
+      fontFamily: 'inherit',
+    }}>
+      {/* Header */}
+      <div style={{ padding: '16px 18px 14px', background: '#111722', position: 'relative' }}>
+        <div style={{ fontSize: '10px', fontWeight: '700', letterSpacing: '1.2px', color: '#1FB8A0', marginBottom: '6px' }}>
+          {t('popup.appDetected')}
         </div>
-
-        {/* Suggestion */}
-        {suggestion && (
-          <div style={{ padding: '12px 20px', background: `${UI_COLORS.brand.accent}15`, borderBottom: `1px solid ${UI_COLORS.border.primary}` }}>
-            <div style={{ fontSize: '11px', color: UI_COLORS.brand.accent, fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-              {t('popup.suggestion')}
-            </div>
-            <div style={{ fontSize: '14px', color: UI_COLORS.text.primary, fontWeight: '500' }}>
-              {suggestion.projectName}
-            </div>
-            <div style={{ fontSize: '11px', color: UI_COLORS.text.muted, marginTop: '4px' }}>
-              {t('popup.usedTimes').replace('{count}', String(suggestion.useCount))}
-            </div>
-          </div>
-        )}
-
-        {/* Search */}
-        <div style={{ padding: '16px 20px' }}>
-          <input type="text" placeholder={t('popup.search')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', padding: '10px 12px', background: UI_COLORS.bg.primary, border: `1px solid ${UI_COLORS.border.primary}`, borderRadius: '6px', color: UI_COLORS.text.primary, fontSize: '14px', outline: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '26px' }}>{getAppIcon(appName)}</span>
+          <span style={{ fontSize: '18px', fontWeight: '700', color: '#E2E8F0' }}>{appName}</span>
         </div>
+        <button onClick={onDismiss} style={{
+          position: 'absolute', top: '14px', right: '14px',
+          background: 'transparent', border: 'none', color: '#718096',
+          fontSize: '20px', cursor: 'pointer', lineHeight: 1, padding: 0,
+        }}>×</button>
+      </div>
 
-        {/* Project List */}
-        <div style={{ maxHeight: '240px', overflowY: 'auto', padding: '0 20px' }}>
-          {filteredProjects.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: UI_COLORS.text.muted, fontSize: '13px' }}>{t('popup.noResults')}</div>
-          ) : (
-            filteredProjects.map(project => (
-              <div key={project.id} onClick={() => setSelectedProjectId(project.id)}
-                style={{ padding: '10px 12px', marginBottom: '6px', background: selectedProjectId === project.id ? UI_COLORS.bg.hover : 'transparent', border: `1px solid ${selectedProjectId === project.id ? UI_COLORS.brand.accent : UI_COLORS.border.primary}`, borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: project.color, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '500', color: UI_COLORS.text.primary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{project.name}</div>
-                    {project.appName && <div style={{ fontSize: '12px', color: UI_COLORS.text.secondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>→ {project.appName}</div>}
-                  </div>
-                  {selectedProjectId === project.id && <div style={{ color: UI_COLORS.brand.accent, fontSize: '16px' }}>✓</div>}
-                </div>
+      {/* Suggestion */}
+      {suggestionProject && !activeProjectIds.has(suggestionProject.id) && (
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #1E2A3A' }}>
+          <div
+            onClick={() => setSelectedProjectId(suggestionProject.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '12px',
+              padding: '12px 14px', borderRadius: '10px',
+              background: selectedProjectId === suggestionProject.id ? '#1A2535' : '#141B27',
+              border: `1px solid ${selectedProjectId === suggestionProject.id ? '#1FB8A0' : '#1E3050'}`,
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: suggestionProject.color, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '10px', color: '#1FB8A0', fontWeight: '600', marginBottom: '3px' }}>
+                {t('popup.lastUsed')}
               </div>
-            ))
-          )}
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#E2E8F0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {suggestion!.projectName}
+              </div>
+            </div>
+            <div style={{
+              width: '28px', height: '28px', borderRadius: '6px', flexShrink: 0,
+              background: selectedProjectId === suggestionProject.id ? '#1FB8A0' : '#1E2A3A',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: selectedProjectId === suggestionProject.id ? '#fff' : '#4A5568', fontSize: '14px',
+              transition: 'all 0.15s',
+            }}>✓</div>
+          </div>
         </div>
+      )}
 
-        {/* Actions */}
-        <div style={{ padding: '16px 20px', borderTop: `1px solid ${UI_COLORS.border.primary}`, display: 'flex', gap: '10px' }}>
-          <button onClick={onDismiss}
-            style={{ flex: 1, padding: '10px', background: 'transparent', border: `1px solid ${UI_COLORS.border.secondary}`, borderRadius: '6px', color: UI_COLORS.text.secondary, fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s' }}>
-            {t('common.cancel')}
-          </button>
-          <button onClick={handleConfirm} disabled={!selectedProjectId}
-            style={{ flex: 2, padding: '10px', background: selectedProjectId ? UI_COLORS.brand.accent : UI_COLORS.bg.hover, border: 'none', borderRadius: '6px', color: selectedProjectId ? '#FFFFFF' : UI_COLORS.text.muted, fontSize: '14px', fontWeight: '600', cursor: selectedProjectId ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
-            {t('popup.startTracking')}
-          </button>
+      {/* Divider */}
+      <div style={{ padding: '10px 16px 6px', textAlign: 'center', fontSize: '11px', color: '#4A5568' }}>
+        {t('popup.orSelect')}
+      </div>
+
+      {/* Search */}
+      <div style={{ padding: '0 16px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0D1117', border: '1px solid #1E2A3A', borderRadius: '8px', padding: '8px 12px' }}>
+          <span style={{ color: '#4A5568', fontSize: '13px' }}>🔍</span>
+          <input
+            type="text"
+            placeholder={t('popup.search')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#E2E8F0', fontSize: '13px' }}
+          />
         </div>
+      </div>
+
+      {/* Project list */}
+      <div style={{ maxHeight: '180px', overflowY: 'auto', padding: '0 16px 8px' }}>
+        {availableProjects.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '16px', color: '#4A5568', fontSize: '13px' }}>
+            {t('popup.noResults')}
+          </div>
+        ) : (
+          availableProjects.map(project => (
+            <div
+              key={project.id}
+              onClick={() => setSelectedProjectId(project.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '10px 12px', marginBottom: '4px',
+                borderRadius: '8px', cursor: 'pointer',
+                background: selectedProjectId === project.id ? '#1A2535' : 'transparent',
+                border: `1px solid ${selectedProjectId === project.id ? '#1E3A50' : 'transparent'}`,
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { if (selectedProjectId !== project.id) e.currentTarget.style.background = '#111722'; }}
+              onMouseLeave={e => { if (selectedProjectId !== project.id) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: project.color, flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', color: '#E2E8F0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {project.name}
+                </div>
+                {project.appName && (
+                  <div style={{ fontSize: '11px', color: '#4A5568', marginTop: '1px' }}>→ {project.appName}</div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Footer buttons */}
+      <div style={{ padding: '12px 16px', borderTop: '1px solid #1E2A3A', display: 'flex', gap: '10px' }}>
+        <button
+          onClick={onDismiss}
+          style={{
+            flex: 1, padding: '11px', background: 'transparent',
+            border: '1px solid #1E2A3A', borderRadius: '8px',
+            color: '#A0AEC0', fontSize: '14px', fontWeight: '500', cursor: 'pointer',
+          }}
+        >
+          {t('popup.skip')}
+        </button>
+        <button
+          onClick={() => selectedProjectId && onSelect(selectedProjectId)}
+          disabled={!selectedProjectId}
+          style={{
+            flex: 2, padding: '11px',
+            background: selectedProjectId ? '#1FB8A0' : '#1E2A3A',
+            border: 'none', borderRadius: '8px',
+            color: selectedProjectId ? '#FFFFFF' : '#4A5568',
+            fontSize: '14px', fontWeight: '600',
+            cursor: selectedProjectId ? 'pointer' : 'not-allowed',
+            transition: 'all 0.15s',
+          }}
+        >
+          {t('popup.confirm')}
+        </button>
       </div>
     </div>
   );

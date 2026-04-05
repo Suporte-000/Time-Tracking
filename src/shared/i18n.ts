@@ -411,14 +411,44 @@ const translations = {
 
   // === Popup Demo ===
   'popupDemo.title': {
-    'en': 'Popup Demo',
-    'es': 'Demo del Popup',
-    'pt-BR': 'Popup Demo',
+    'en': 'Linking Popup',
+    'es': 'Popup de Vinculación',
+    'pt-BR': 'Popup de Vinculação',
   },
   'popupDemo.description': {
-    'en': 'Simulate the project linking popup that appears when a monitored app is detected.',
-    'es': 'Simule el popup de vinculación de proyecto que aparece al detectar una app monitoreada.',
-    'pt-BR': 'Simule o popup de vinculação de projeto que aparece ao detectar um app monitorado.',
+    'en': 'Appears when a monitored app comes into focus.',
+    'es': 'Aparece cuando una app monitorada entra en foco.',
+    'pt-BR': 'Aparece quando um app monitorado entra em foco.',
+  },
+  'popupDemo.howTitle': {
+    'en': 'HOW IT WORKS',
+    'es': 'CÓMO FUNCIONA',
+    'pt-BR': 'COMO FUNCIONA',
+  },
+  'popupDemo.step1': {
+    'en': 'User opens or switches to a monitored app (e.g. VS Code, Figma)',
+    'es': 'El usuario abre o cambia a una app monitorada (ej: VS Code, Figma)',
+    'pt-BR': 'Usuário abre ou troca para um app monitorado (ex: VS Code, Figma)',
+  },
+  'popupDemo.step2': {
+    'en': 'System detects the process and shows the popup below',
+    'es': 'El sistema detecta el proceso y muestra el popup abajo',
+    'pt-BR': 'Sistema detecta o processo e exibe o popup abaixo',
+  },
+  'popupDemo.step3': {
+    'en': 'Smart suggestion — shows the last business used in this app',
+    'es': 'Sugerencia inteligente — muestra el último negocio usado en esta app',
+    'pt-BR': 'Sugestão inteligente — exibe o último negócio usado nesse app',
+  },
+  'popupDemo.step4': {
+    'en': 'One click confirms — popup closes and time tracking begins',
+    'es': 'Un clic confirma — el popup desaparece y el conteo inicia',
+    'pt-BR': 'Um clique confirma — popup desaparece e contagem inicia',
+  },
+  'popupDemo.step5': {
+    'en': 'No response in 30s → popup closes, time stays as "unlinked"',
+    'es': 'Sin respuesta en 30s → popup cierra, tiempo queda como "no vinculado"',
+    'pt-BR': 'Sem resposta por 30s → popup fecha, tempo fica em "não vinculado"',
   },
   'popupDemo.instruction': {
     'en': 'Click the button below to open the popup and link your time to a project.',
@@ -476,6 +506,31 @@ const translations = {
     'en': 'Start Tracking',
     'es': 'Iniciar Rastreo',
     'pt-BR': 'Iniciar Rastreamento',
+  },
+  'popup.appDetected': {
+    'en': 'APP DETECTED',
+    'es': 'APP DETECTADA',
+    'pt-BR': 'APP DETECTADO',
+  },
+  'popup.lastUsed': {
+    'en': 'Last used in this app',
+    'es': 'Último usado en esta app',
+    'pt-BR': 'Último usado neste app',
+  },
+  'popup.skip': {
+    'en': 'Skip',
+    'es': 'Saltar',
+    'pt-BR': 'Pular',
+  },
+  'popup.confirm': {
+    'en': '✓ Confirm Business',
+    'es': '✓ Confirmar Negocio',
+    'pt-BR': '✓ Confirmar Projeto',
+  },
+  'popup.orSelect': {
+    'en': '— or select another business —',
+    'es': '— o selecciona otro negocio —',
+    'pt-BR': '— ou selecione outro negócio —',
   },
 
   // === PopupApp ===
