@@ -458,25 +458,32 @@ class TimeTrackApp {
 
     // Running apps — queries Windows for all processes with a visible window
     ipcMain.handle(IPC_CHANNELS.GET_RUNNING_APPS, async () => {
-      if (process.platform !== 'win32') return [];
+      console.log('GET_RUNNING_APPS called, platform:', process.platform);
+      if (process.platform !== 'win32') {
+        console.log('GET_RUNNING_APPS: not win32, returning []');
+        return [];
+      }
       try {
         const { exec } = require('child_process');
         const { promisify } = require('util');
         const execAsync = promisify(exec);
 
-        // tasklist /v gives process name + window title, no PowerShell needed
-        // Format: "Name","PID","Session","Num","Mem","Status","User","CPU","Window Title"
-        const { stdout } = await execAsync(
+        console.log('GET_RUNNING_APPS: running tasklist...');
+        const { stdout, stderr } = await execAsync(
           'tasklist /v /fo csv /nh',
           { timeout: 8000, windowsHide: true }
         );
+        console.log('GET_RUNNING_APPS: tasklist stderr:', stderr || '(none)');
+        console.log('GET_RUNNING_APPS: tasklist stdout length:', stdout?.length);
+        console.log('GET_RUNNING_APPS: first 300 chars:', stdout?.substring(0, 300));
 
         const seen = new Set<string>();
         const apps: { processName: string; windowTitle: string; icon: string }[] = [];
         const lines = stdout.trim().split(/\r?\n/);
+        console.log('GET_RUNNING_APPS: total lines:', lines.length);
+
         for (const line of lines) {
           if (!line.trim()) continue;
-          // CSV parse: split by "," but respect quotes
           const cols = line.match(/(".*?"|[^,]+)(?=,|$)/g) || [];
           const exeName = cols[0]?.replace(/"/g, '').replace(/\.exe$/i, '').trim();
           const windowTitle = cols[8]?.replace(/"/g, '').trim();
@@ -488,10 +495,12 @@ class TimeTrackApp {
             apps.push({ processName: exeName, windowTitle, icon: '🖥️' });
           }
         }
-        console.log('GET_RUNNING_APPS:', apps.length, 'apps');
+        console.log('GET_RUNNING_APPS: result count:', apps.length);
+        console.log('GET_RUNNING_APPS: apps:', JSON.stringify(apps.slice(0, 5)));
         return apps;
-      } catch (err) {
-        console.error('GET_RUNNING_APPS error:', err);
+      } catch (err: any) {
+        console.error('GET_RUNNING_APPS exception:', err?.message || err);
+        console.error('GET_RUNNING_APPS stack:', err?.stack);
         return [];
       }
     });
