@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import path from 'path';
 
 const external = [
-  'electron', 'path', 'fs', 'child_process', 'util', 'os',
+  'electron', 'path', 'fs', 'child_process', 'util', 'os', 'events',
   'better-sqlite3', 'active-win', /^node:/,
 ];
 
@@ -14,7 +14,12 @@ const entryFile = entry === 'preload'
   : path.resolve(__dirname, 'src/main/main.ts');
 
 export default defineConfig({
+  define: {
+    'process.env.NODE_ENV': '"production"',
+  },
   build: {
+    target: 'node20',
+    ssr: true,
     outDir: 'dist-electron/main',
     emptyOutDir: false,
     minify: false,
