@@ -10,6 +10,7 @@ const PopupDemo: React.FC = () => {
   const [lastTracked, setLastTracked] = useState<{ projectId: string; appName: string } | null>(null);
   const [activeProjectIds, setActiveProjectIds] = useState<Set<string>>(new Set());
   const [allTracking, setAllTracking] = useState(false);
+  const [hasProjects, setHasProjects] = useState(false);
   const [detectedApp, setDetectedApp] = useState<{ appName: string; processName: string } | null>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const POPUP_DELAY_MS = 2 * 60 * 1000;
@@ -45,13 +46,14 @@ const PopupDemo: React.FC = () => {
       setActiveProjectIds(active);
       const allDone = (projects as Project[]).length > 0 && (projects as Project[]).every((p: Project) => active.has(p.id));
       setAllTracking(allDone);
+      setHasProjects((projects as Project[]).length > 0);
       scheduleAutoPopup(projects as Project[], active);
     };
     load();
   }, [showPopup]);
 
   const handleOpenPopup = () => {
-    if (allTracking) return;
+    if (allTracking || !hasProjects) return;
     setShowPopup(true);
   };
 
@@ -118,16 +120,16 @@ const PopupDemo: React.FC = () => {
         </p>
         <button
           onClick={handleOpenPopup}
-          disabled={allTracking}
+          disabled={allTracking || !hasProjects}
           style={{
             padding: '12px 24px',
-            background: allTracking ? UI_COLORS.bg.hover : UI_COLORS.brand.accent,
+            background: (allTracking || !hasProjects) ? UI_COLORS.bg.hover : UI_COLORS.brand.accent,
             border: 'none',
             borderRadius: '8px',
-            color: allTracking ? UI_COLORS.text.muted : '#FFFFFF',
+            color: (allTracking || !hasProjects) ? UI_COLORS.text.muted : '#FFFFFF',
             fontSize: '14px',
             fontWeight: '600',
-            cursor: allTracking ? 'not-allowed' : 'pointer',
+            cursor: (allTracking || !hasProjects) ? 'not-allowed' : 'pointer',
           }}
         >
           {t('popupDemo.openPopup')}

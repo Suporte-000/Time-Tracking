@@ -380,6 +380,17 @@ const translations = {
     'pt-BR': 'Excluir todas as entradas desta data?',
   },
 
+  // === History columns & status ===
+  'history.col.time':    { 'en': 'TIME',        'es': 'HORA',       'pt-BR': 'HORÁRIO' },
+  'history.col.app':     { 'en': 'APP',          'es': 'APLICACIÓN', 'pt-BR': 'APLICATIVO' },
+  'history.col.project': { 'en': 'PROJECT',      'es': 'PROYECTO',   'pt-BR': 'PROJETO' },
+  'history.col.duration':{ 'en': 'DURATION',     'es': 'DURACIÓN',   'pt-BR': 'DURAÇÃO' },
+  'history.col.origin':  { 'en': 'ORIGIN',       'es': 'ORIGEN',     'pt-BR': 'ORIGEM' },
+  'history.status.auto':     { 'en': 'Auto',     'es': 'Auto',       'pt-BR': 'Auto' },
+  'history.status.manual':   { 'en': 'Manual',   'es': 'Manual',     'pt-BR': 'Manual' },
+  'history.status.paused':   { 'en': 'Paused',   'es': 'Pausado',    'pt-BR': 'Pausa' },
+  'history.status.adjusted': { 'en': 'Adjusted', 'es': 'Ajustado',   'pt-BR': 'Ajustado' },
+
   // === Configuration ===
   'config.title': {
     'en': 'Settings',

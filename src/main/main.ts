@@ -149,10 +149,10 @@ class TimeTrackApp {
       this.mainWindow?.focus();
     });
 
-    // Update tray menu every 5 seconds
+    // Update tray menu and window title every second
     setInterval(() => {
       this.updateTrayMenu();
-    }, 5000);
+    }, 1000);
   }
 
   private updateTrayMenu() {
@@ -220,15 +220,28 @@ class TimeTrackApp {
 
     this.tray.setContextMenu(contextMenu);
 
-    // Update tooltip
+    const projects = this.db?.getProjects() || [];
+
     if (currentTracking) {
-      const projects = this.db?.getProjects() || [];
       const project = projects.find(p => p.id === currentTracking.projectId);
-      this.tray.setToolTip(
-        `TimeTrack - Rastreando: ${project?.name || currentTracking.appName}`
-      );
+      const projectName = project
+        ? project.name + (project.subproject ? ` › ${project.subproject}` : '')
+        : currentTracking.appName;
+
+      // Elapsed time
+      const elapsed = Math.floor((Date.now() - new Date(currentTracking.startTime).getTime()) / 1000);
+      const h = Math.floor(elapsed / 3600);
+      const m = Math.floor((elapsed % 3600) / 60);
+      const s = elapsed % 60;
+      const timeStr = h > 0
+        ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+        : `${m}:${String(s).padStart(2, '0')}`;
+
+      this.tray.setToolTip(`TimeTrack - ${projectName} (${timeStr})`);
+      this.mainWindow?.setTitle(`TimeTrack — ${projectName}  •  ${timeStr}`);
     } else {
-      this.tray.setToolTip('TimeTrack - Sem rastreamento ativo');
+      this.tray.setToolTip('TimeTrack');
+      this.mainWindow?.setTitle('TimeTrack — Controle de Horas por Projeto');
     }
   }
 
@@ -562,19 +575,24 @@ class TimeTrackApp {
       if (this.mainWindow) {
         this.mainWindow.show();
         this.mainWindow.focus();
-        if (this.mainWindow.isMaximized()) this.mainWindow.unmaximize();
       }
     });
 
     ipcMain.on(IPC_CHANNELS.WINDOW_MINIMIZE, () => {
+      if (this.mainWindow?.isFullScreen()) {
+        this.mainWindow.setFullScreen(false);
+      }
       this.mainWindow?.minimize();
     });
 
     ipcMain.on(IPC_CHANNELS.WINDOW_MAXIMIZE, () => {
-      if (this.mainWindow?.isMaximized()) {
+      if (!this.mainWindow) return;
+      if (this.mainWindow.isFullScreen()) {
+        this.mainWindow.setFullScreen(false);
+      } else if (this.mainWindow.isMaximized()) {
         this.mainWindow.unmaximize();
       } else {
-        this.mainWindow?.maximize();
+        this.mainWindow.setFullScreen(true);
       }
     });
 

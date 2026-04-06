@@ -342,10 +342,6 @@ const Dashboard: React.FC = () => {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div className="active-timer">00:00:00</div>
-            <button onClick={() => setShowStartModal(true)} disabled={projects.length === 0}
-              style={{ marginTop: '8px', padding: '6px 16px', background: projects.length > 0 ? '#1FB8A0' : '#1E2530', border: 'none', borderRadius: '6px', color: projects.length > 0 ? '#FFFFFF' : '#4A5568', fontSize: '13px', fontWeight: '600', cursor: projects.length > 0 ? 'pointer' : 'not-allowed' }}>
-              ▶ {t('timer.start')}
-            </button>
           </div>
         </div>
       )}

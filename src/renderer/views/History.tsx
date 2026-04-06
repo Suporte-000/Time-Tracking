@@ -4,11 +4,11 @@ import { useI18n } from '../i18nContext';
 
 const LOCALE_MAP: Record<string, string> = { 'en': 'en-US', 'es': 'es-ES', 'pt-BR': 'pt-BR' };
 
-const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-  auto:     { label: 'Auto',     bg: '#1a3a2a', color: '#4ade80' },
-  manual:   { label: 'Manual',   bg: '#1a2a3a', color: '#60a5fa' },
-  paused:   { label: 'Pausa',    bg: '#2a1a3a', color: '#a78bfa' },
-  adjusted: { label: 'Ajustado', bg: '#3a2a1a', color: '#f59e0b' },
+const STATUS_BADGE_STYLE: Record<string, { bg: string; color: string }> = {
+  auto:     { bg: '#1a3a2a', color: '#4ade80' },
+  manual:   { bg: '#1a2a3a', color: '#60a5fa' },
+  paused:   { bg: '#2a1a3a', color: '#a78bfa' },
+  adjusted: { bg: '#3a2a1a', color: '#f59e0b' },
 };
 
 const History: React.FC = () => {
@@ -136,7 +136,13 @@ const History: React.FC = () => {
       <div style={{ background: '#161C26', borderRadius: '12px', border: '1px solid #1E2A3A', overflow: 'hidden' }}>
         {/* Column headers */}
         <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 90px 100px', padding: '10px 20px', borderBottom: '1px solid #1E2A3A' }}>
-          {['HORÁRIO', 'APLICATIVO', 'PROJETO', 'DURAÇÃO', 'ORIGEM'].map(h => (
+          {([
+            t('history.col.time'),
+            t('history.col.app'),
+            t('history.col.project'),
+            t('history.col.duration'),
+            t('history.col.origin'),
+          ]).map(h => (
             <div key={h} style={{ fontSize: '11px', fontWeight: '600', color: '#4A5568', letterSpacing: '0.6px' }}>{h}</div>
           ))}
         </div>
@@ -148,7 +154,9 @@ const History: React.FC = () => {
         ) : (
           timeEntries.map((entry, i) => {
             const project = getProject(entry.projectId);
-            const badge = STATUS_BADGE[entry.status] || STATUS_BADGE['manual'];
+            const badgeStyle = STATUS_BADGE_STYLE[entry.status] || STATUS_BADGE_STYLE['manual'];
+            const statusKey = `history.status.${entry.status}` as any;
+            const badgeLabel = t(statusKey) || entry.status;
             const isLast = i === timeEntries.length - 1;
             return (
               <div key={entry.id}
@@ -181,8 +189,8 @@ const History: React.FC = () => {
 
                 {/* Status badge */}
                 <div>
-                  <span style={{ padding: '3px 10px', borderRadius: '6px', background: badge.bg, color: badge.color, fontSize: '12px', fontWeight: '600' }}>
-                    {badge.label}
+                  <span style={{ padding: '3px 10px', borderRadius: '6px', background: badgeStyle.bg, color: badgeStyle.color, fontSize: '12px', fontWeight: '600' }}>
+                    {badgeLabel}
                   </span>
                 </div>
 
