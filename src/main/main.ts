@@ -441,27 +441,46 @@ class TimeTrackApp {
         return [];
       }
       try {
+        // active-win@5 returns the currently focused window synchronously
+        const activeWin = require('active-win');
+        const active = activeWin.sync();
+
+        // Also enumerate all windows with titles via PowerShell EncodedCommand
         const { exec } = require('child_process');
         const { promisify } = require('util');
         const execAsync = promisify(exec);
-        // Use single-quoted PS command passed via -EncodedCommand to avoid shell escaping issues
         const psScript = 'Get-Process | Where-Object { $_.MainWindowTitle -ne \'\' } | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json -Compress';
         const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
-        const { stdout, stderr } = await execAsync(
-          `powershell -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
+        const { stdout } = await execAsync(
+          `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
           { timeout: 8000, windowsHide: true }
         );
-        if (stderr) console.warn('GET_RUNNING_APPS stderr:', stderr);
-        if (!stdout || !stdout.trim()) return [];
-        const raw = JSON.parse(stdout.trim());
-        const list = Array.isArray(raw) ? raw : [raw];
-        return list
-          .filter((p: { ProcessName: string; MainWindowTitle: string }) => p.ProcessName && p.MainWindowTitle)
-          .map((p: { ProcessName: string; MainWindowTitle: string }) => ({
-            processName: p.ProcessName,
-            windowTitle: p.MainWindowTitle,
-            icon: '🖥️',
-          }));
+
+        const apps: { processName: string; windowTitle: string; icon: string }[] = [];
+        const seen = new Set<string>();
+
+        // Add active window first so it appears at the top
+        if (active && active.owner && active.owner.name) {
+          const name = active.owner.name.replace(/\.exe$/i, '');
+          seen.add(name.toLowerCase());
+          apps.push({ processName: name, windowTitle: active.title || name, icon: '🖥️' });
+        }
+
+        if (stdout && stdout.trim()) {
+          const raw = JSON.parse(stdout.trim());
+          const list: any[] = Array.isArray(raw) ? raw : [raw];
+          for (const p of list) {
+            if (!p.ProcessName || !p.MainWindowTitle) continue;
+            const key = p.ProcessName.toLowerCase();
+            if (!seen.has(key)) {
+              seen.add(key);
+              apps.push({ processName: p.ProcessName, windowTitle: p.MainWindowTitle, icon: '🖥️' });
+            }
+          }
+        }
+
+        console.log('GET_RUNNING_APPS:', apps.length, 'apps');
+        return apps;
       } catch (err) {
         console.error('GET_RUNNING_APPS error:', err);
         return [];
