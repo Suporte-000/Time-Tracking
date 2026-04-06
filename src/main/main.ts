@@ -96,6 +96,12 @@ class TimeTrackApp {
       this.mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
     }
 
+    // Capture all renderer console output into the log file
+    this.mainWindow.webContents.on('console-message', (_e, level, message) => {
+      const lvl = ['DEBUG', 'INFO', 'WARN', 'ERROR'][level] ?? 'INFO';
+      writeLog(`MAIN-RENDERER:${lvl}`, [message]);
+    });
+
     this.mainWindow.once('ready-to-show', () => {
       this.mainWindow?.show();
       // // Ensure it's not maximized on first show
@@ -398,6 +404,12 @@ class TimeTrackApp {
         query: { mode: 'popup', appName, processName },
       });
     }
+
+    // Capture popup renderer console output into the log file
+    this.popupWindow.webContents.on('console-message', (_e, level, message) => {
+      const lvl = ['DEBUG', 'INFO', 'WARN', 'ERROR'][level] ?? 'INFO';
+      writeLog(`POPUP-RENDERER:${lvl}`, [message]);
+    });
 
     this.popupWindow.on('closed', () => {
       this.popupWindow = null;
