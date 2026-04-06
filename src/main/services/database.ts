@@ -170,31 +170,7 @@ export class DatabaseService {
       count: number;
     };
 
-    if (projectsCount.count === 0) {
-      const defaultProjects = [
-        { name: 'Dashboard BI Bicicletas', subproject: null, color: '#0B5563' },
-        { name: 'Portal MedOcup', subproject: 'Backend', color: '#14919B' },
-        { name: 'E-commerce Cliente X', subproject: null, color: '#1FB8A0' },
-        { name: 'Reuniões e Comunicação', subproject: null, color: '#0EA5A5' },
-      ];
-
-      const stmt = this.db.prepare(`
-        INSERT INTO projects (id, name, subproject, color, createdAt, isActive)
-        VALUES (?, ?, ?, ?, ?, 1)
-      `);
-
-      for (const project of defaultProjects) {
-        stmt.run(
-          this.generateId(),
-          project.name,
-          project.subproject,
-          project.color,
-          new Date().toISOString()
-        );
-      }
-
-      console.log('Default projects created');
-    }
+    // No default projects — user creates their own
   }
 
   // ==================== PROJECTS ====================

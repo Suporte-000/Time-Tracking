@@ -72,12 +72,7 @@ class TimeTrackApp {
 
   private createMainWindow() {
     this.mainWindow = new BrowserWindow({
-      width: 960,
-      height: 620,
-      minWidth: 800,
-      minHeight: 500,
-      center: true,
-      maximizable: true,
+      fullscreen:true,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -104,10 +99,9 @@ class TimeTrackApp {
 
     this.mainWindow.once('ready-to-show', () => {
       this.mainWindow?.show();
-      // // Ensure it's not maximized on first show
-      // if (this.mainWindow?.isMaximized()) {
-      //   this.mainWindow.unmaximize();
-      // }
+      if (this.mainWindow?.isMaximized()) {
+        this.mainWindow.unmaximize();
+      }
     });
 
     // Intercept OS close button — hide to tray instead of quitting
@@ -568,7 +562,7 @@ class TimeTrackApp {
       if (this.mainWindow) {
         this.mainWindow.show();
         this.mainWindow.focus();
-        this.mainWindow.restore();
+        if (this.mainWindow.isMaximized()) this.mainWindow.unmaximize();
       }
     });
 

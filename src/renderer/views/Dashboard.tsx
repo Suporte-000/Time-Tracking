@@ -323,18 +323,14 @@ const Dashboard: React.FC = () => {
               </div>
             );
           })}
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', padding: '0 20px', justifyContent: 'flex-end' }}>
-            <button onClick={() => setShowStartModal(true)}
-              style={{ padding: '8px 16px', background: '#1FB8A0', border: 'none', borderRadius: '6px', color: '#FFFFFF', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-              {t('timer.addTimer')}
-            </button>
-            {activeEntries.length > 1 && (
+          {activeEntries.length > 1 && (
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', padding: '0 20px', justifyContent: 'flex-end' }}>
               <button onClick={handleStopAll}
                 style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #E85D75', borderRadius: '6px', color: '#E85D75', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
                 ⏹ {t('timer.stopAll')}
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="active-card">
