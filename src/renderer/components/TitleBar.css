@@ -1,7 +1,7 @@
 .title-bar {
   height: 36px;
-  background: #0A0E14;
-  border-bottom: 1px solid #1A1F2B;
+  background: #0B5563;
+  border-bottom: 1px solid #14919B;
   display: flex;
   align-items: center;
   padding: 0 14px;
@@ -41,8 +41,9 @@
   flex: 1;
   text-align: center;
   font-size: 12px;
-  color: #4A5568;
+  color: #E8F6F5;
   font-weight: 500;
+  opacity: 0.8;
 }
 
 .title-bar-right {
@@ -56,12 +57,14 @@
   align-items: center;
   gap: 5px;
   font-size: 11px;
-  color: #718096;
+  color: #E8F6F5;
   font-weight: 600;
+  opacity: 0.6;
 }
 
 .tray-indicator.active {
-  color: #1FB8A0;
+  color: #E8F6F5;
+  opacity: 1;
 }
 
 .tray-dot {
@@ -87,7 +90,8 @@
 
 .tray-time {
   font-size: 12px;
-  color: #718096;
+  color: #E8F6F5;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+  opacity: 0.7;
 }
