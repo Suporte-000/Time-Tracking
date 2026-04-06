@@ -17,8 +17,12 @@ const Dashboard: React.FC = () => {
   // New project modal state
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectSubproject, setNewProjectSubproject] = useState('');
   const [newProjectApp, setNewProjectApp] = useState('');
   const [newProjectCustomApp, setNewProjectCustomApp] = useState('');
+
+  // Import file ref
+  const importFileRef = useRef<HTMLInputElement>(null);
 
 
   // Timer state
@@ -134,30 +138,37 @@ const Dashboard: React.FC = () => {
 
   const handleNewProject = async () => {
     if (!newProjectName.trim()) return;
-    // Resolve app name
-    let appName = '';
-    let processName = '';
-    if (newProjectApp === '__custom__' && newProjectCustomApp.trim()) {
-      appName = newProjectCustomApp.trim();
-      processName = newProjectCustomApp.trim().toLowerCase();
-    } else if (newProjectApp && newProjectApp !== '__custom__') {
-      const matched = monitoredApps.find(a => a.name === newProjectApp);
-      appName = matched ? matched.name : newProjectApp;
-      processName = matched ? matched.processName : newProjectApp.toLowerCase();
-    }
-
     try {
       const colorIndex = projects.length % PROJECT_COLORS.length;
       await window.electron.createProject({
         name: newProjectName.trim(),
-        appName: appName || undefined,
-        processName: processName || undefined,
+        subproject: newProjectSubproject.trim() || undefined,
         color: PROJECT_COLORS[colorIndex],
         isActive: true,
       });
-      setNewProjectName(''); setNewProjectApp(''); setNewProjectCustomApp('');
+      setNewProjectName(''); setNewProjectSubproject('');
       setShowNewProjectModal(false); await loadProjects();
     } catch (error) { console.error('Error creating project:', error); alert(t('project.createError')); }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    let count = 0;
+    for (const line of lines) {
+      const parts = line.split('\t');
+      const name = parts[0]?.trim();
+      const subproject = parts[1]?.trim() || undefined;
+      if (!name) continue;
+      const colorIndex = (projects.length + count) % PROJECT_COLORS.length;
+      await window.electron.createProject({ name, subproject, color: PROJECT_COLORS[colorIndex], isActive: true });
+      count++;
+    }
+    await loadProjects();
+    e.target.value = '';
+    alert(`Imported ${count} projects.`);
   };
 
   const formatDuration = (seconds: number): string => {
@@ -183,7 +194,7 @@ const Dashboard: React.FC = () => {
     return sum + e.duration;
   }, 0);
 
-  const canCreateProject = newProjectName.trim() && (newProjectApp !== '' && newProjectApp !== '__custom__' || (newProjectApp === '__custom__' && newProjectCustomApp.trim()));
+  const canCreateProject = newProjectName.trim();
 
   if (loading) return <div className="loading">{t('dashboard.loading')}</div>;
 
@@ -199,6 +210,10 @@ const Dashboard: React.FC = () => {
             style={{ opacity: timeEntries.length === 0 ? 0.5 : 1, cursor: timeEntries.length === 0 ? 'not-allowed' : 'pointer' }}>
             ⬇ {t('dashboard.exportCsv')}
           </button>
+          <button className="btn" onClick={() => importFileRef.current?.click()}>
+            ⬆ Import TXT/CSV
+          </button>
+          <input ref={importFileRef} type="file" accept=".txt,.csv" style={{ display: 'none' }} onChange={handleImportFile} />
           <button className="btn btn-primary" onClick={() => setShowNewProjectModal(true)}>
             {t('dashboard.newProject')}
           </button>
@@ -218,29 +233,15 @@ const Dashboard: React.FC = () => {
                 style={{ width: '100%', padding: '10px', background: '#0A0E14', border: '1px solid #1A1F2B', borderRadius: '6px', color: '#E2E8F0', fontSize: '14px' }} autoFocus />
             </div>
 
-            {/* App selector */}
+            {/* Subproject */}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#A0AEC0', fontSize: '14px' }}>{t('app.label')} *</label>
-              <select value={newProjectApp} onChange={(e) => setNewProjectApp(e.target.value)}
-                style={{ width: '100%', padding: '10px', background: '#0A0E14', border: '1px solid #1A1F2B', borderRadius: '6px', color: '#E2E8F0', fontSize: '14px', outline: 'none', cursor: 'pointer' }}>
-                <option value="">{t('app.select')}</option>
-                {monitoredApps.map(app => (<option key={app.id} value={app.name}>{app.icon} {app.name}</option>))}
-                <option value="__custom__">{t('app.other')}</option>
-              </select>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#A0AEC0', fontSize: '14px' }}>Subproject (optional)</label>
+              <input type="text" value={newProjectSubproject} onChange={(e) => setNewProjectSubproject(e.target.value)} placeholder="e.g. Electrical, Plumbing..."
+                style={{ width: '100%', padding: '10px', background: '#0A0E14', border: '1px solid #1A1F2B', borderRadius: '6px', color: '#E2E8F0', fontSize: '14px' }} />
             </div>
 
-            {/* Custom app name */}
-            {newProjectApp === '__custom__' && (
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#A0AEC0', fontSize: '14px' }}>{t('app.nameLabel')}</label>
-                <input type="text" value={newProjectCustomApp} onChange={(e) => setNewProjectCustomApp(e.target.value)}
-                  placeholder={t('app.namePlaceholder')}
-                  style={{ width: '100%', padding: '10px', background: '#0A0E14', border: '1px solid #1A1F2B', borderRadius: '6px', color: '#E2E8F0', fontSize: '14px', outline: 'none' }} />
-              </div>
-            )}
-
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button onClick={() => { setShowNewProjectModal(false); setNewProjectName(''); setNewProjectApp(''); setNewProjectCustomApp(''); }}
+              <button onClick={() => { setShowNewProjectModal(false); setNewProjectName(''); setNewProjectSubproject(''); setNewProjectApp(''); setNewProjectCustomApp(''); }}
                 style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #1E2530', borderRadius: '6px', color: '#A0AEC0', cursor: 'pointer', fontSize: '14px' }}>
                 {t('common.cancel')}
               </button>
@@ -269,7 +270,9 @@ const Dashboard: React.FC = () => {
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#1A1F2B'; }}>
                     <div style={{ width: '14px', height: '14px', borderRadius: '4px', background: project.color, flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ color: '#E2E8F0', fontSize: '14px', fontWeight: 500 }}>{project.name}</div>
+                      <div style={{ color: '#E2E8F0', fontSize: '14px', fontWeight: 500 }}>
+                        {project.name}{project.subproject ? ` › ${project.subproject}` : ''}
+                      </div>
                       {project.appName && <div style={{ color: '#718096', fontSize: '12px', marginTop: '2px' }}>→ {project.appName}</div>}
                     </div>
                     <div style={{ color: '#1FB8A0', fontSize: '18px' }}>▶</div>
@@ -298,7 +301,7 @@ const Dashboard: React.FC = () => {
                 <div className="active-app-icon">⏱</div>
                 <div className="active-info">
                   <div className="active-label">{t('timer.trackingNow')}</div>
-                  <div className="active-app">{project ? project.name : entry.appName}</div>
+                  <div className="active-app">{project ? `${project.name}${project.subproject ? ` › ${project.subproject}` : ''}` : entry.appName}</div>
                   <div className="active-project">{entry.appName} — {t('timer.startedAt')} {formatTime(entry.startTime)}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -376,7 +379,10 @@ const Dashboard: React.FC = () => {
               <div key={project.id} className="proj-row">
                 <div className="proj-color" style={{ background: project.color }}></div>
                 <div className="proj-info">
-                  <div className="proj-name">{project.name}</div>
+                  <div className="proj-name">
+                    {project.name}
+                    {project.subproject && <span style={{ color: '#718096', fontWeight: 400 }}> › {project.subproject}</span>}
+                  </div>
                   {project.appName && (
                     <div style={{ fontSize: '11px', color: '#718096', marginTop: '2px' }}>→ {project.appName}</div>
                   )}

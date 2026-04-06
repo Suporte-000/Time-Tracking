@@ -88,9 +88,9 @@ const translations = {
     'pt-BR': 'Exportar CSV',
   },
   'dashboard.newProject': {
-    'en': '+ New Business',
-    'es': '+ Nuevo Negocio',
-    'pt-BR': '+ Novo Negócio',
+    'en': '+ New Project',
+    'es': '+ Nuevo Proyecto',
+    'pt-BR': '+ Novo Projeto',
   },
   'dashboard.loading': {
     'en': 'Loading...',
@@ -100,19 +100,19 @@ const translations = {
 
   // New Project Modal
   'project.new': {
-    'en': 'New Business',
-    'es': 'Nuevo Negocio',
-    'pt-BR': 'Novo Negócio',
+    'en': 'New Project',
+    'es': 'Nuevo Proyecto',
+    'pt-BR': 'Novo Projeto',
   },
   'project.name': {
-    'en': 'Business Name *',
-    'es': 'Nombre del Negocio *',
-    'pt-BR': 'Nome do Negócio *',
+    'en': 'Project Name *',
+    'es': 'Nombre del Proyecto *',
+    'pt-BR': 'Nome do Projeto *',
   },
   'project.namePlaceholder': {
-    'en': 'Ex: Business A',
-    'es': 'Ej: Negocio A',
-    'pt-BR': 'Ex: Negócio A',
+    'en': 'Ex: Project A',
+    'es': 'Ej: Proyecto A',
+    'pt-BR': 'Ex: Projeto A',
   },
   'project.subproject': {
     'en': 'Subproject (optional)',
@@ -125,14 +125,14 @@ const translations = {
     'pt-BR': 'Ex: Elétrica',
   },
   'project.create': {
-    'en': 'Create Business',
-    'es': 'Crear Negocio',
-    'pt-BR': 'Criar Negócio',
+    'en': 'Create Project',
+    'es': 'Crear Proyecto',
+    'pt-BR': 'Criar Projeto',
   },
   'project.createError': {
-    'en': 'Error creating business',
-    'es': 'Error al crear negocio',
-    'pt-BR': 'Erro ao criar negócio',
+    'en': 'Error creating project',
+    'es': 'Error al crear proyecto',
+    'pt-BR': 'Erro ao criar projeto',
   },
   'project.none': {
     'en': 'No project',
@@ -140,19 +140,19 @@ const translations = {
     'pt-BR': 'Sem projeto',
   },
   'project.registered': {
-    'en': 'Registered Businesses',
-    'es': 'Negocios Registrados',
-    'pt-BR': 'Negócios Cadastrados',
+    'en': 'Registered Projects',
+    'es': 'Proyectos Registrados',
+    'pt-BR': 'Projetos Cadastrados',
   },
   'project.noneYet': {
-    'en': 'No businesses registered yet',
-    'es': 'Ningún negocio registrado aún',
-    'pt-BR': 'Nenhum negócio cadastrado ainda',
+    'en': 'No projects registered yet',
+    'es': 'Ningún proyecto registrado aún',
+    'pt-BR': 'Nenhum projeto cadastrado ainda',
   },
   'project.noneCreateFirst': {
-    'en': 'No businesses registered. Create a business first.',
-    'es': 'Ningún negocio registrado. Cree un negocio primero.',
-    'pt-BR': 'Nenhum negócio cadastrado. Crie um negócio primeiro.',
+    'en': 'No projects registered. Create a project first.',
+    'es': 'Ningún proyecto registrado. Cree un proyecto primero.',
+    'pt-BR': 'Nenhum projeto cadastrado. Crie um projeto primeiro.',
   },
 
   // Timer
@@ -506,9 +506,9 @@ const translations = {
     'pt-BR': 'Sistema detecta o processo e exibe o popup abaixo',
   },
   'popupDemo.step3': {
-    'en': 'Smart suggestion — shows the last business used in this app',
-    'es': 'Sugerencia inteligente — muestra el último negocio usado en esta app',
-    'pt-BR': 'Sugestão inteligente — exibe o último negócio usado nesse app',
+    'en': 'Smart suggestion — shows the last project used in this app',
+    'es': 'Sugerencia inteligente — muestra el último proyecto usado en esta app',
+    'pt-BR': 'Sugestão inteligente — exibe o último projeto usado nesse app',
   },
   'popupDemo.step4': {
     'en': 'One click confirms — popup closes and time tracking begins',
@@ -593,14 +593,14 @@ const translations = {
     'pt-BR': 'Pular',
   },
   'popup.confirm': {
-    'en': '✓ Confirm Business',
-    'es': '✓ Confirmar Negocio',
+    'en': '✓ Confirm Project',
+    'es': '✓ Confirmar Proyecto',
     'pt-BR': '✓ Confirmar Projeto',
   },
   'popup.orSelect': {
-    'en': '— or select another business —',
-    'es': '— o selecciona otro negocio —',
-    'pt-BR': '— ou selecione outro negócio —',
+    'en': '— or select another project —',
+    'es': '— o selecciona otro proyecto —',
+    'pt-BR': '— ou selecione outro projeto —',
   },
 
   // === PopupApp ===

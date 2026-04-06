@@ -134,7 +134,7 @@ const PopupDemo: React.FC = () => {
         </button>
         {allTracking && (
           <div style={{ marginTop: '12px', fontSize: '13px', color: UI_COLORS.text.muted }}>
-            All businesses are already being tracked.
+            All projects are already being tracked.
           </div>
         )}
 

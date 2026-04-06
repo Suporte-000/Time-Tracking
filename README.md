@@ -2,7 +2,7 @@
 
 Aplicativo desktop para Windows desenvolvido para controlar automaticamente as horas trabalhadas por projeto, com rastreamento de aplicativos, sugestões inteligentes e sincronização centralizada.
 
-## 📋 Visão Geral
+##  Visão Geral
 
 TimeTrack é uma ferramenta interna de controle de tempo que:
 
@@ -15,9 +15,9 @@ TimeTrack é uma ferramenta interna de controle de tempo que:
 
 ---
 
-## 🎯 Funcionalidades Principais
+##  Funcionalidades Principais
 
-### ✅ Milestone 1 - Motor de Rastreamento Local (COMPLETO)
+###  Milestone 1 - Motor de Rastreamento Local (COMPLETO)
 - [x] Detecção de processo ativo no Windows (PowerShell + GetForegroundWindow)
 - [x] Monitoramento de inatividade **event-driven** com Win32 API (GetLastInputInfo)
 - [x] Banco de dados SQLite local para cache offline
@@ -25,13 +25,13 @@ TimeTrack é uma ferramenta interna de controle de tempo que:
 - [x] Importação CSV/TXT/XLSX de projetos existentes
 - [x] Configurações personalizáveis (tempo de inatividade, delay do popup, etc.)
 
-### ✅ Milestone 2 - Servidor e Multi-Usuário (COMPLETO)
+###  Milestone 2 - Servidor e Multi-Usuário (COMPLETO)
 - [x] API Node.js + PostgreSQL na VPS
 - [x] Sincronização em tempo real (15 usuários simultâneos)
 - [x] Permissões de gestor com audit log
 - [x] Dashboard centralizado para gestores
 
-### ✅ Milestone 3 - Dashboard e Distribuição (COMPLETO)
+###  Milestone 3 - Dashboard e Distribuição (COMPLETO)
 - [x] Popup inteligente com sugestão de projeto
 - [x] Lógica de delay (2 min de uso contínuo)
 - [x] Histórico diário detalhado com resumos
@@ -41,7 +41,7 @@ TimeTrack é uma ferramenta interna de controle de tempo que:
 
 ---
 
-## 🛠️ Stack Tecnológica
+##  Stack Tecnológica
 
 | Componente | Tecnologia |
 |------------|------------|
@@ -53,7 +53,7 @@ TimeTrack é uma ferramenta interna de controle de tempo que:
 
 ---
 
-## 📦 Instalação e Desenvolvimento
+##  Instalação e Desenvolvimento
 
 ### Pré-requisitos
 
@@ -105,7 +105,7 @@ O instalador será gerado em `/release/TimeTrack Setup X.X.X.exe`
 
 ---
 
-## 📁 Estrutura do Projeto
+##  Estrutura do Projeto
 
 ```
 TimeTrack/
@@ -143,7 +143,7 @@ TimeTrack/
 
 ---
 
-## ✨ Novidades do Milestone 3
+##  Novidades do Milestone 3
 
 ### Popup Inteligente de Vinculação
 - **Detecção automática**: Após 2 minutos de uso contínuo de um aplicativo monitorado
@@ -181,7 +181,7 @@ TimeTrack/
 - **Preserva dados**: Não deleta banco ao desinstalar
 - **Tamanho**: ~120 MB (installer) / ~250 MB (instalado)
 
-### Monitor de Atividade Aprimorado ⚡ **NOVO**
+### Monitor de Atividade Aprimorado  **NOVO**
 - **Event-driven**: Usa Electron powerMonitor (zero CPU em repouso)
 - **Win32 API nativa**: `GetLastInputInfo` para detecção precisa
 - **Smart polling**: 30s quando ativo, 5s perto do limite, 0s quando inativo
@@ -190,11 +190,11 @@ TimeTrack/
 - **Detecção instantânea**: Lock/unlock de tela via eventos do sistema
 - **Sem dependências nativas**: Funciona sem compilação adicional
 
-📖 **Documentação completa:** [ACTIVITY_MONITOR_IMPLEMENTATION.md](ACTIVITY_MONITOR_IMPLEMENTATION.md)
+ **Documentação completa:** [ACTIVITY_MONITOR_IMPLEMENTATION.md](ACTIVITY_MONITOR_IMPLEMENTATION.md)
 
 ---
 
-## 🔧 Scripts Disponíveis
+##  Scripts Disponíveis
 
 | Script | Descrição |
 |--------|-----------|
@@ -208,37 +208,37 @@ TimeTrack/
 
 ---
 
-## 🔐 Segurança e Transparência
+##  Segurança e Transparência
 
 ### Dados Coletados
-- ✅ Nome do processo ativo (ex: `Code.exe`, `chrome.exe`)
-- ✅ Título da janela (para contexto)
-- ✅ Timestamps de início/fim de atividade
-- ✅ Projeto vinculado pelo usuário
-- ✅ ID do usuário (para multi-usuário)
+-  Nome do processo ativo (ex: `Code.exe`, `chrome.exe`)
+-  Título da janela (para contexto)
+-  Timestamps de início/fim de atividade
+-  Projeto vinculado pelo usuário
+-  ID do usuário (para multi-usuário)
 
 ### O que NÃO é coletado
-- ❌ Capturas de tela
-- ❌ Teclas digitadas (keystroke logging)
-- ❌ Conteúdo de arquivos
-- ❌ Dados de navegação (URLs, histórico)
-- ❌ Comunicação com servidores terceiros
+-  Capturas de tela
+-  Teclas digitadas (keystroke logging)
+-  Conteúdo de arquivos
+-  Dados de navegação (URLs, histórico)
+-  Comunicação com servidores terceiros
 
 ### Comunicação de Rede
-- ✅ **Único endpoint**: VPS configurada pelo cliente (Milestone 2)
-- ✅ **Protocolo**: HTTPS com autenticação
-- ✅ **Dados**: Apenas time entries, projetos e configurações
-- ❌ **Nenhuma telemetria** enviada para servidores externos
+-  **Único endpoint**: VPS configurada pelo cliente (Milestone 2)
+-  **Protocolo**: HTTPS com autenticação
+-  **Dados**: Apenas time entries, projetos e configurações
+-  **Nenhuma telemetria** enviada para servidores externos
 
 ### Permissões Locais Necessárias
-- ✅ Leitura de processo ativo (`Get-Process` PowerShell)
-- ✅ Leitura de idle time do sistema (`GetLastInputInfo`)
-- ✅ Acesso ao banco de dados local (SQLite em `userData`)
-- ❌ **Não requer** permissões de administrador
+-  Leitura de processo ativo (`Get-Process` PowerShell)
+-  Leitura de idle time do sistema (`GetLastInputInfo`)
+-  Acesso ao banco de dados local (SQLite em `userData`)
+-  **Não requer** permissões de administrador
 
 ---
 
-## 📊 Como Funciona
+##  Como Funciona
 
 ### 1. Detecção de Aplicativo Ativo
 ```
@@ -275,7 +275,7 @@ Time entry criado/atualizado localmente (SQLite)
 
 ---
 
-## 🤝 Suporte e Contribuição
+##  Suporte e Contribuição
 
 ### Build Issues
 Se encontrar problemas ao compilar:
@@ -295,20 +295,20 @@ Para funcionalidade completa, execute em Windows 10/11.
 
 ---
 
-## 📄 Licença
+##  Licença
 
 MIT License - Este é um projeto interno desenvolvido sob contrato.
 
 **Entregáveis**:
-- ✅ Código-fonte completo (este repositório)
-- ✅ Instruções de build e deployment
-- ✅ Documentação de arquitetura
-- 🔄 Instalador Windows (Milestone 3)
-- 🔄 Deploy VPS (Milestone 2)
+-  Código-fonte completo (este repositório)
+-  Instruções de build e deployment
+-  Documentação de arquitetura
+-  Instalador Windows (Milestone 3)
+-  Deploy VPS (Milestone 2)
 
 ---
 
-## 📦 Arquivos de Build e Documentação
+##  Arquivos de Build e Documentação
 
 - **[BUILD_GUIDE.md](BUILD_GUIDE.md)** - Guia completo de build e deployment
 - **package.json** - Configuração do electron-builder com NSIS
@@ -318,15 +318,15 @@ MIT License - Este é um projeto interno desenvolvido sob contrato.
 
 ---
 
-## 🎉 Status do Projeto
+##  Status do Projeto
 
 **Todos os 3 Milestones foram concluídos com sucesso!**
 
-✅ **Milestone 1** - Motor de rastreamento local funcional
-✅ **Milestone 2** - Servidor VPS com multi-usuário
-✅ **Milestone 3** - Popup inteligente, histórico, CSV, tray, installer
+ **Milestone 1** - Motor de rastreamento local funcional
+ **Milestone 2** - Servidor VPS com multi-usuário
+ **Milestone 3** - Popup inteligente, histórico, CSV, tray, installer
 
-**Pronto para produção!** 🚀
+**Pronto para produção!** 
 
 O TimeTrack está completo e testado. Todos os recursos foram implementados conforme especificação. O sistema está pronto para deployment interno na equipe de 15 usuários.
 
@@ -339,4 +339,4 @@ O TimeTrack está completo e testado. Todos os recursos foram implementados conf
 
 ---
 
-**Desenvolvido com ❤️ usando Electron, React e TypeScript**
+**Desenvolvido com  usando Electron, React e TypeScript**

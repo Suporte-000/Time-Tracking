@@ -118,7 +118,7 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
                 {t('popup.lastUsed')}
               </div>
               <div style={{ fontSize: '15px', fontWeight: '700', color: '#E2E8F0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {suggestion!.projectName}
+                {suggestionProject.name}{suggestionProject.subproject ? <span style={{ color: '#718096', fontWeight: 400 }}> › {suggestionProject.subproject}</span> : null}
               </div>
             </div>
             <div style={{
@@ -175,7 +175,7 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
               <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: project.color, flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '14px', color: '#E2E8F0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {project.name}
+                  {project.name}{project.subproject ? <span style={{ color: '#718096', fontWeight: 400 }}> › {project.subproject}</span> : null}
                 </div>
                 {project.appName && (
                   <div style={{ fontSize: '11px', color: '#4A5568', marginTop: '1px' }}>→ {project.appName}</div>

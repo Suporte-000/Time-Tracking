@@ -171,7 +171,7 @@ const History: React.FC = () => {
 
                 {/* Project */}
                 <div style={{ fontSize: '14px', color: project ? '#E2E8F0' : '#4A5568', fontWeight: project ? '500' : '400' }}>
-                  {project?.name || '—'}
+                  {project ? `${project.name}${project.subproject ? ` › ${project.subproject}` : ''}` : '—'}
                 </div>
 
                 {/* Duration */}
