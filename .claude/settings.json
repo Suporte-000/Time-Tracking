@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(node -e \"const aw = require\\('active-win'\\); console.log\\(Object.keys\\(aw\\)\\)\")",
-      "Bash(node -e \"const aw = require\\('active-win'\\); console.log\\(JSON.stringify\\(aw.sync\\(\\)\\)\\)\")"
-    ]
-  }
-}
