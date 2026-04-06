@@ -192,34 +192,6 @@ const Configuration: React.FC = () => {
         {/* Right */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-          {/* System Parameters */}
-          {config && (
-            <div style={{ background: '#161C26', borderRadius: '14px', border: '1px solid #1E2A3A', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 20px', borderBottom: '1px solid #1E2A3A' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '1px', color: '#718096' }}>{t('config.systemParams')}</span>
-              </div>
-              <div>
-                {[
-                  { label: t('config.inactivity'), key: 'inactivityTimeout' as keyof SystemConfig, unit: t('config.minutes'), min: 1, max: 60 },
-                  { label: t('config.popupDelay'),  key: 'popupDelay'         as keyof SystemConfig, unit: t('config.minutes'), min: 1, max: 60 },
-                  { label: t('config.autoClose'),   key: 'popupAutoClose'     as keyof SystemConfig, unit: t('config.seconds'), min: 5, max: 300 },
-                  { label: t('config.backup'),      key: 'backupInterval'     as keyof SystemConfig, unit: 'h', min: 1, max: 24,
-                    displayVal: Math.round((config.backupInterval as number) / 60) || 1,
-                    saveVal: (v: number) => v * 60 },
-                ].map(row => {
-                  const rawVal = config[row.key] as number;
-                  const displayVal = row.displayVal ?? rawVal;
-                  return (
-                    <div key={String(row.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #111722' }}>
-                      <span style={{ fontSize: '14px', color: '#A0AEC0' }}>{row.label}</span>
-                      <EditableBadge value={displayVal} unit={row.unit} min={row.min} max={row.max}
-                        onChange={v => handleConfigNumber(row.key, row.saveVal ? row.saveVal(v) : v)} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* System Toggles */}
           {config && (

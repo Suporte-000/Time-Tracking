@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ProjectPopup from '../components/ProjectPopup';
 import type { Project, TimeEntry, MonitoredApp } from '../../shared/types';
 import { PROJECT_COLORS } from '../../shared/colors';
 import { useI18n } from '../i18nContext';
@@ -30,6 +31,7 @@ const Dashboard: React.FC = () => {
   const [, setTick] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [showPopup, setShowPopup] = useState(false);
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const POPUP_DELAY_MS = 2 * 60 * 1000; // 2 minutes
 
@@ -96,8 +98,23 @@ const Dashboard: React.FC = () => {
 
   const triggerPopup = () => {
     if (projects.length === 0) return;
-    // Ask main process to open the always-on-top popup window
-    (window.electron as any).showPopup?.('', '');
+    // Bring main window to front, then show popup overlay
+    window.electron.showMainWindow?.();
+    setShowPopup(true);
+  };
+
+  const handlePopupSelect = async (projectId: string, appName: string, processName: string) => {
+    try {
+      const entry = await window.electron.startTracking({ userId: 'user', projectId, appName, processName });
+      setActiveEntries(prev => [...prev, entry]);
+      await loadTodayEntries();
+    } catch (e) { console.error(e); }
+    setShowPopup(false);
+    popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);
+  };
+
+  const handlePopupDismiss = () => {
+    setShowPopup(false);
     popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);
   };
 
@@ -273,49 +290,54 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Active tracking cards */}
+      {/* APP EM FOCO AGORA */}
       {activeEntries.length > 0 ? (
         <div>
           {activeEntries.map(entry => {
             const project = projects.find(p => p.id === entry.projectId);
             const elapsed = getElapsed(entry);
+            const projectLabel = project
+              ? `${project.name}${project.subproject ? ` › ${project.subproject}` : ''}`
+              : '—';
             return (
-              <div key={entry.id} className="active-card" style={{ marginBottom: '8px' }}>
-                <div className="active-app-icon">⏱</div>
-                <div className="active-info">
-                  <div className="active-label">{t('timer.trackingNow')}</div>
-                  <div className="active-app">{project ? `${project.name}${project.subproject ? ` › ${project.subproject}` : ''}` : entry.appName}</div>
-                  <div className="active-project">{entry.appName} — {t('timer.startedAt')} {formatTime(entry.startTime)}</div>
+              <div key={entry.id} className="active-card" style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px' }}>
+                <div style={{ fontSize: '32px', width: '48px', textAlign: 'center', flexShrink: 0 }}>💻</div>
+                <div className="active-info" style={{ flex: 1 }}>
+                  <div className="active-label" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', color: '#1FB8A0', marginBottom: '4px' }}>{t('timer.appInFocus')}</div>
+                  <div className="active-app" style={{ fontSize: '20px', fontWeight: 700, color: '#E2E8F0', marginBottom: '4px' }}>{entry.appName || 'Unknown'}</div>
+                  <div className="active-project" style={{ fontSize: '13px', color: '#718096' }}>→ {t('timer.project')}: {projectLabel}</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div className="active-timer" style={{ color: '#1FB8A0' }}>{formatTimerDisplay(elapsed)}</div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: '#1FB8A0', fontVariantNumeric: 'tabular-nums', letterSpacing: '1px' }}>{formatTimerDisplay(elapsed)}</div>
+                  <div style={{ fontSize: '11px', color: '#718096', marginTop: '2px', marginBottom: '8px' }}>{t('timer.todayOnProject')}</div>
                   <button onClick={() => handleStopTimer(entry.id)}
-                    style={{ marginTop: '8px', padding: '6px 16px', background: '#E85D75', border: 'none', borderRadius: '6px', color: '#FFFFFF', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-                    ⏹ {t('timer.stop')}
+                    style={{ padding: '6px 18px', background: '#E85D75', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                    ■ {t('timer.stop')}
                   </button>
                 </div>
               </div>
             );
           })}
           {activeEntries.length > 1 && (
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', padding: '0 20px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
               <button onClick={handleStopAll}
-                style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #E85D75', borderRadius: '6px', color: '#E85D75', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #E85D75', borderRadius: '6px', color: '#E85D75', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                 ⏹ {t('timer.stopAll')}
               </button>
             </div>
           )}
         </div>
       ) : (
-        <div className="active-card">
-          <div className="active-app-icon">💻</div>
-          <div className="active-info">
-            <div className="active-label">{t('timer.appInFocus')}</div>
-            <div className="active-app">TimeTrack Development</div>
-            <div className="active-project">{t('timer.trackingStarted')}</div>
+        <div className="active-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px' }}>
+          <div style={{ fontSize: '32px', width: '48px', textAlign: 'center', flexShrink: 0 }}>💻</div>
+          <div className="active-info" style={{ flex: 1 }}>
+            <div className="active-label" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', color: '#1FB8A0', marginBottom: '4px' }}>{t('timer.appInFocus')}</div>
+            <div className="active-app" style={{ fontSize: '20px', fontWeight: 700, color: '#E2E8F0', marginBottom: '4px' }}>—</div>
+            <div className="active-project" style={{ fontSize: '13px', color: '#718096' }}>{t('timer.noTracking')}</div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div className="active-timer">00:00:00</div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontSize: '32px', fontWeight: 700, color: '#4A5568', fontVariantNumeric: 'tabular-nums' }}>00:00:00</div>
+            <div style={{ fontSize: '11px', color: '#4A5568', marginTop: '2px' }}>{t('timer.todayOnProject')}</div>
           </div>
         </div>
       )}
@@ -328,6 +350,19 @@ const Dashboard: React.FC = () => {
         <div className="kpi-card"><div className="kpi-label">{t('kpi.noProject')}</div><div className="kpi-val">0h 0m</div><div className="kpi-sub">{t('kpi.unlinked')}</div></div>
       </div>
 
+
+      {/* Popup overlay */}
+      {showPopup && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <ProjectPopup
+            appName=""
+            processName=""
+            activeProjectIds={new Set(activeEntries.map(e => e.projectId).filter((id): id is string => !!id))}
+            onSelect={handlePopupSelect}
+            onDismiss={handlePopupDismiss}
+          />
+        </div>
+      )}
 
       {/* Project list */}
       <div className="section-label">{t('project.registered')}</div>

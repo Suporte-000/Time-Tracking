@@ -201,6 +201,15 @@ const translations = {
     'es': '→ Sistema de rastreo iniciado',
     'pt-BR': '→ Sistema de rastreamento iniciado',
   },
+  'timer.project': {
+    'en': 'Project', 'es': 'Proyecto', 'pt-BR': 'Projeto',
+  },
+  'timer.todayOnProject': {
+    'en': 'today on this project', 'es': 'hoy en este proyecto', 'pt-BR': 'hoje neste projeto',
+  },
+  'timer.noTracking': {
+    'en': 'No tracking active', 'es': 'Sin rastreo activo', 'pt-BR': 'Nenhum rastreamento ativo',
+  },
   'timer.waitingLink': {
     'en': 'waiting for link',
     'es': 'esperando vinculación',
