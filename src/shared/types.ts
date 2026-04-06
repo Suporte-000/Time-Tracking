@@ -135,6 +135,10 @@ export const IPC_CHANNELS = {
   // System
   MINIMIZE_TO_TRAY: 'minimize-to-tray',
   SHOW_NOTIFICATION: 'show-notification',
+  SHOW_MAIN_WINDOW: 'show-main-window',
+  WINDOW_MINIMIZE: 'window-minimize',
+  WINDOW_MAXIMIZE: 'window-maximize',
+  WINDOW_CLOSE: 'window-close',
 } as const;
 
 export interface ActiveWindow {

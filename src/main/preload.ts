@@ -76,6 +76,22 @@ const api = {
     ipcRenderer.send(IPC_CHANNELS.MINIMIZE_TO_TRAY);
   },
 
+  showMainWindow: () => {
+    ipcRenderer.send(IPC_CHANNELS.SHOW_MAIN_WINDOW);
+  },
+
+  windowMinimize: () => {
+    ipcRenderer.send(IPC_CHANNELS.WINDOW_MINIMIZE);
+  },
+
+  windowMaximize: () => {
+    ipcRenderer.send(IPC_CHANNELS.WINDOW_MAXIMIZE);
+  },
+
+  windowClose: () => {
+    ipcRenderer.send(IPC_CHANNELS.WINDOW_CLOSE);
+  },
+
   // Event listeners
   onActiveWindowChanged: (callback: (data: any) => void) => {
     ipcRenderer.on(IPC_CHANNELS.ACTIVE_WINDOW_CHANGED, (_, data) => callback(data));

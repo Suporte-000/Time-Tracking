@@ -27,6 +27,9 @@ class TimeTrackApp {
     this.db = new DatabaseService();
 
     // Create main window
+    // Remove default menu bar (File/Edit/View/Window/Help)
+    Menu.setApplicationMenu(null);
+
     this.createMainWindow();
 
     // Create system tray
@@ -80,15 +83,41 @@ class TimeTrackApp {
       this.mainWindow?.show();
     });
 
+    // Intercept OS close button — hide to tray instead of quitting
+    this.mainWindow.on('close', (e) => {
+      e.preventDefault();
+      this.mainWindow?.hide();
+    });
+
     this.mainWindow.on('closed', () => {
       this.mainWindow = null;
     });
   }
 
+  private createTrayIcon() {
+    // Generate a 16x16 teal icon as PNG buffer
+    // Simple solid teal square with "T" — works on all Windows versions
+    const size = 16;
+    const buf = Buffer.alloc(size * size * 4);
+    for (let i = 0; i < size * size; i++) {
+      const x = i % size;
+      const y = Math.floor(i / size);
+      // Draw teal background
+      let r = 0x1F, g = 0xB8, b = 0xA0, a = 255;
+      // Draw white "T" letter in center
+      const cx = 8;
+      if ((y === 3 || y === 4) && x >= 3 && x <= 12) { r = 255; g = 255; b = 255; }
+      else if (x >= cx - 1 && x <= cx + 1 && y >= 3 && y <= 13) { r = 255; g = 255; b = 255; }
+      buf[i * 4 + 0] = r;
+      buf[i * 4 + 1] = g;
+      buf[i * 4 + 2] = b;
+      buf[i * 4 + 3] = a;
+    }
+    return nativeImage.createFromBuffer(buf, { width: size, height: size });
+  }
+
   private createTray() {
-    // Create a simple tray icon using nativeImage
-    // Using an empty icon for now - can be replaced with actual icon file
-    const icon = nativeImage.createEmpty();
+    const icon = this.createTrayIcon();
     this.tray = new Tray(icon);
 
     this.updateTrayMenu();
@@ -311,6 +340,7 @@ class TimeTrackApp {
       transparent: false,
       alwaysOnTop: true,
       skipTaskbar: true,
+      focusable: true,
       backgroundColor: '#0A0E14',
       webPreferences: {
         nodeIntegration: false,
@@ -319,8 +349,13 @@ class TimeTrackApp {
       },
     });
 
+    // Force above ALL windows on Windows (fullscreen apps, focused apps, etc.)
+    this.popupWindow.setAlwaysOnTop(true, 'screen-saver');
+    this.popupWindow.setVisibleOnAllWorkspaces(true);
+
     // Center the popup on screen
     this.popupWindow.center();
+    this.popupWindow.focus();
 
     // Load popup view with query params
     const queryParams = new URLSearchParams({
@@ -396,6 +431,31 @@ class TimeTrackApp {
 
     // System
     ipcMain.on(IPC_CHANNELS.MINIMIZE_TO_TRAY, () => {
+      this.mainWindow?.hide();
+    });
+
+    ipcMain.on(IPC_CHANNELS.SHOW_MAIN_WINDOW, () => {
+      if (this.mainWindow) {
+        this.mainWindow.show();
+        this.mainWindow.focus();
+        this.mainWindow.restore();
+      }
+    });
+
+    ipcMain.on(IPC_CHANNELS.WINDOW_MINIMIZE, () => {
+      this.mainWindow?.minimize();
+    });
+
+    ipcMain.on(IPC_CHANNELS.WINDOW_MAXIMIZE, () => {
+      if (this.mainWindow?.isMaximized()) {
+        this.mainWindow.unmaximize();
+      } else {
+        this.mainWindow?.maximize();
+      }
+    });
+
+    // Close hides to tray — does NOT quit the app
+    ipcMain.on(IPC_CHANNELS.WINDOW_CLOSE, () => {
       this.mainWindow?.hide();
     });
   }

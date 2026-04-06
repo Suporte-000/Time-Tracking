@@ -24,6 +24,8 @@ const PopupApp: React.FC = () => {
         appName: appData.appName,
         processName: appData.processName,
       });
+      // Show main window so user can see the active timer and stop it
+      window.electron.showMainWindow?.();
       window.close();
     } catch (error) {
       console.error('Failed to start tracking:', error);

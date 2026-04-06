@@ -198,6 +198,10 @@ export const browserApi = {
   },
 
   minimizeToTray: () => {},
+  showMainWindow: () => {},
+  windowMinimize: () => {},
+  windowMaximize: () => {},
+  windowClose: () => {},
   onActiveWindowChanged: () => {},
   onUserInactive: () => {},
   onUserActive: () => {},
