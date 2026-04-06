@@ -438,23 +438,21 @@ class TimeTrackApp {
     // Running apps — queries Windows for all processes with a visible window
     ipcMain.handle(IPC_CHANNELS.GET_RUNNING_APPS, async () => {
       if (process.platform !== 'win32') {
-        // Dev fallback on Linux/Mac
-        return [
-          { processName: 'Code', windowTitle: 'Visual Studio Code', icon: '💻' },
-          { processName: 'chrome', windowTitle: 'Google Chrome', icon: '🌐' },
-          { processName: 'figma', windowTitle: 'Figma', icon: '🎨' },
-        ];
+        return [];
       }
       try {
         const { exec } = require('child_process');
         const { promisify } = require('util');
         const execAsync = promisify(exec);
-        const ps = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json`;
-        const { stdout } = await execAsync(
-          `powershell -NoProfile -NonInteractive -Command "${ps}"`,
-          { timeout: 5000, windowsHide: true }
+        // Use single-quoted PS command passed via -EncodedCommand to avoid shell escaping issues
+        const psScript = 'Get-Process | Where-Object { $_.MainWindowTitle -ne \'\' } | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json -Compress';
+        const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
+        const { stdout, stderr } = await execAsync(
+          `powershell -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
+          { timeout: 8000, windowsHide: true }
         );
-        if (!stdout.trim()) return [];
+        if (stderr) console.warn('GET_RUNNING_APPS stderr:', stderr);
+        if (!stdout || !stdout.trim()) return [];
         const raw = JSON.parse(stdout.trim());
         const list = Array.isArray(raw) ? raw : [raw];
         return list
@@ -464,7 +462,8 @@ class TimeTrackApp {
             windowTitle: p.MainWindowTitle,
             icon: '🖥️',
           }));
-      } catch {
+      } catch (err) {
+        console.error('GET_RUNNING_APPS error:', err);
         return [];
       }
     });

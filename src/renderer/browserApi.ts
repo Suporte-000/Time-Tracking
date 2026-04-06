@@ -164,12 +164,7 @@ export const browserApi = {
   },
 
   getRunningApps: async () => {
-    return [
-      { processName: 'Code', windowTitle: 'Visual Studio Code', icon: '💻' },
-      { processName: 'chrome', windowTitle: 'Google Chrome', icon: '🌐' },
-      { processName: 'figma', windowTitle: 'Figma', icon: '🎨' },
-      { processName: 'Teams', windowTitle: 'Microsoft Teams', icon: '💬' },
-    ];
+    return [];
   },
 
   updateMonitoredApp: async (app: { id: string;[key: string]: unknown }) => {

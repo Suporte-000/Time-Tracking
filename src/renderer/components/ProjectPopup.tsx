@@ -43,6 +43,8 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
   const [selectedApp, setSelectedApp] = useState<RunningApp | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [appSearch, setAppSearch] = useState('');
+  const [loadingApps, setLoadingApps] = useState(true);
   const [countdown, setCountdown] = useState(30);
 
   useEffect(() => { loadData(); }, []);
@@ -54,12 +56,13 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
   }, [countdown, onDismiss]);
 
   const loadData = async () => {
+    setLoadingApps(true);
     try {
       const [apps, allProjects] = await Promise.all([
-        window.electron.getRunningApps(),
+        window.electron.getRunningApps ? window.electron.getRunningApps() : Promise.resolve([]),
         window.electron.getProjects(),
       ]);
-      const running = apps as RunningApp[];
+      const running = (apps as RunningApp[]) || [];
       setRunningApps(running);
       setProjects((allProjects as Project[]).filter(p => p.isActive));
 
@@ -68,7 +71,11 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
         a => a.processName.toLowerCase() === processName.toLowerCase()
       );
       if (matched) setSelectedApp(matched);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error('loadData error:', e);
+    } finally {
+      setLoadingApps(false);
+    }
   };
 
   const availableProjects = projects.filter(p =>
@@ -96,37 +103,63 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
           <button onClick={onDismiss} style={closeBtnStyle}>×</button>
         </div>
 
-        {/* App list */}
-        <div style={{ padding: '12px 16px', maxHeight: '280px', overflowY: 'auto' }}>
-          {runningApps.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: '#4A5568', fontSize: '13px' }}>
-              No running programs detected
-            </div>
-          ) : (
-            runningApps.map(app => {
-              const isSelected = selectedApp?.processName === app.processName;
-              return (
-                <div key={app.processName} onClick={() => setSelectedApp(app)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
-                    padding: '10px 12px', marginBottom: '6px', borderRadius: '8px',
-                    background: isSelected ? '#1A2535' : '#0D1117',
-                    border: `1px solid ${isSelected ? '#1FB8A0' : '#1E2A3A'}`,
-                    cursor: 'pointer', transition: 'all 0.15s',
-                  }}>
-                  <span style={{ fontSize: '22px', width: '32px', textAlign: 'center' }}>{getAppIcon(app.processName)}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>{app.windowTitle}</div>
-                    <div style={{ fontSize: '11px', color: '#4A5568' }}>{app.processName}.exe</div>
-                  </div>
-                  {isSelected && (
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#1FB8A0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '12px' }}>✓</div>
-                  )}
-                </div>
-              );
-            })
-          )}
+        {/* Search */}
+        <div style={{ padding: '8px 16px 0' }}>
+          <input
+            value={appSearch}
+            onChange={e => setAppSearch(e.target.value)}
+            placeholder="Search programs..."
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '8px 12px',
+              background: '#0D1117', border: '1px solid #1E2A3A', borderRadius: '6px',
+              color: '#E2E8F0', fontSize: '13px', outline: 'none',
+            }}
+            autoFocus
+          />
         </div>
+
+        {/* App list */}
+        {(() => {
+          const filtered = runningApps.filter(a =>
+            !appSearch ||
+            a.windowTitle.toLowerCase().includes(appSearch.toLowerCase()) ||
+            a.processName.toLowerCase().includes(appSearch.toLowerCase())
+          );
+          return (
+            <div style={{ padding: '8px 16px', maxHeight: '240px', overflowY: 'auto' }}>
+              {loadingApps ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#4A5568', fontSize: '13px' }}>Loading...</div>
+              ) : filtered.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#4A5568', fontSize: '13px' }}>
+                  No running programs detected
+                </div>
+              ) : (
+                filtered.map(app => {
+                  const isSelected = selectedApp?.processName === app.processName;
+                  return (
+                    <div key={app.processName} onClick={() => setSelectedApp(app)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        padding: '10px 12px', marginBottom: '6px', borderRadius: '8px',
+                        background: isSelected ? '#1A2535' : '#0D1117',
+                        border: `1px solid ${isSelected ? '#1FB8A0' : '#1E2A3A'}`,
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}>
+                      <span style={{ fontSize: '22px', width: '32px', textAlign: 'center' }}>{getAppIcon(app.processName)}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>{app.windowTitle}</div>
+                        <div style={{ fontSize: '11px', color: '#4A5568' }}>{app.processName}.exe</div>
+                      </div>
+                      {isSelected && (
+                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#1FB8A0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '12px' }}>✓</div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          );
+        })()}
 
         {/* Footer */}
         <div style={footerStyle}>
