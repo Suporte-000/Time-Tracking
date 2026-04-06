@@ -437,49 +437,26 @@ class TimeTrackApp {
 
     // Running apps — queries Windows for all processes with a visible window
     ipcMain.handle(IPC_CHANNELS.GET_RUNNING_APPS, async () => {
-      if (process.platform !== 'win32') {
-        return [];
-      }
       try {
-        // active-win@5 returns the currently focused window synchronously
-        const activeWin = require('active-win');
-        const active = activeWin.sync();
-
-        // Also enumerate all windows with titles via PowerShell EncodedCommand
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
-        const psScript = 'Get-Process | Where-Object { $_.MainWindowTitle -ne \'\' } | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json -Compress';
-        const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
-        const { stdout } = await execAsync(
-          `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
-          { timeout: 8000, windowsHide: true }
-        );
-
-        const apps: { processName: string; windowTitle: string; icon: string }[] = [];
+        const { desktopCapturer } = require('electron');
+        const sources = await desktopCapturer.getSources({
+          types: ['window'],
+          thumbnailSize: { width: 0, height: 0 },
+          fetchWindowIcons: false,
+        });
         const seen = new Set<string>();
-
-        // Add active window first so it appears at the top
-        if (active && active.owner && active.owner.name) {
-          const name = active.owner.name.replace(/\.exe$/i, '');
-          seen.add(name.toLowerCase());
-          apps.push({ processName: name, windowTitle: active.title || name, icon: '🖥️' });
-        }
-
-        if (stdout && stdout.trim()) {
-          const raw = JSON.parse(stdout.trim());
-          const list: any[] = Array.isArray(raw) ? raw : [raw];
-          for (const p of list) {
-            if (!p.ProcessName || !p.MainWindowTitle) continue;
-            const key = p.ProcessName.toLowerCase();
-            if (!seen.has(key)) {
-              seen.add(key);
-              apps.push({ processName: p.ProcessName, windowTitle: p.MainWindowTitle, icon: '🖥️' });
-            }
+        const apps: { processName: string; windowTitle: string; icon: string }[] = [];
+        for (const src of sources) {
+          const title = src.name?.trim();
+          if (!title || title === 'TimeTrack') continue;
+          // src.id is like "window:1234:0" — extract a short key from the title
+          const key = title.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            apps.push({ processName: title, windowTitle: title, icon: '🖥️' });
           }
         }
-
-        console.log('GET_RUNNING_APPS:', apps.length, 'apps');
+        console.log('GET_RUNNING_APPS:', apps.length, 'windows');
         return apps;
       } catch (err) {
         console.error('GET_RUNNING_APPS error:', err);
