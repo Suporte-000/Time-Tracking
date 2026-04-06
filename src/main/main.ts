@@ -73,7 +73,7 @@ class TimeTrackApp {
       this.mainWindow.loadURL('http://localhost:5173');
       this.mainWindow.webContents.openDevTools();
     } else {
-      this.mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+      this.mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
     }
 
     this.mainWindow.once('ready-to-show', () => {
@@ -332,7 +332,7 @@ class TimeTrackApp {
       this.popupWindow.loadURL(`http://localhost:5173?mode=popup&${queryParams.toString()}`);
       this.popupWindow.webContents.openDevTools({ mode: 'detach' });
     } else {
-      this.popupWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+      this.popupWindow.loadFile(path.join(__dirname, '../../dist/index.html'), {
         query: { mode: 'popup', appName, processName },
       });
     }
