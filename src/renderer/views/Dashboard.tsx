@@ -21,8 +21,7 @@ const Dashboard: React.FC = () => {
   const [newProjectApp, setNewProjectApp] = useState('');
   const [newProjectCustomApp, setNewProjectCustomApp] = useState('');
 
-  // Import file ref
-  const importFileRef = useRef<HTMLInputElement>(null);
+
 
 
   // Timer state
@@ -30,6 +29,7 @@ const Dashboard: React.FC = () => {
   const [activeEntries, setActiveEntries] = useState<TimeEntry[]>([]);
   const [, setTick] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const [showPopup, setShowPopup] = useState(false);
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -136,21 +136,6 @@ const Dashboard: React.FC = () => {
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `timetrack_${today}.csv`; link.click();
   };
 
-  const handleNewProject = async () => {
-    if (!newProjectName.trim()) return;
-    try {
-      const colorIndex = projects.length % PROJECT_COLORS.length;
-      await window.electron.createProject({
-        name: newProjectName.trim(),
-        subproject: newProjectSubproject.trim() || undefined,
-        color: PROJECT_COLORS[colorIndex],
-        isActive: true,
-      });
-      setNewProjectName(''); setNewProjectSubproject('');
-      setShowNewProjectModal(false); await loadProjects();
-    } catch (error) { console.error('Error creating project:', error); alert(t('project.createError')); }
-  };
-
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -169,6 +154,21 @@ const Dashboard: React.FC = () => {
     await loadProjects();
     e.target.value = '';
     alert(`Imported ${count} projects.`);
+  };
+
+  const handleNewProject = async () => {
+    if (!newProjectName.trim()) return;
+    try {
+      const colorIndex = projects.length % PROJECT_COLORS.length;
+      await window.electron.createProject({
+        name: newProjectName.trim(),
+        subproject: newProjectSubproject.trim() || undefined,
+        color: PROJECT_COLORS[colorIndex],
+        isActive: true,
+      });
+      setNewProjectName(''); setNewProjectSubproject('');
+      setShowNewProjectModal(false); await loadProjects();
+    } catch (error) { console.error('Error creating project:', error); alert(t('project.createError')); }
   };
 
   const formatDuration = (seconds: number): string => {
@@ -301,11 +301,11 @@ const Dashboard: React.FC = () => {
               : '—';
             return (
               <div key={entry.id} className="active-card" style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px' }}>
-                <div style={{ fontSize: '32px', width: '48px', textAlign: 'center', flexShrink: 0 }}>💻</div>
+                <div style={{ fontSize: '32px', width: '48px',textAlign: 'center', flexShrink: 0 }}>💻</div>
                 <div className="active-info" style={{ flex: 1 }}>
                   <div className="active-label" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', color: '#1FB8A0', marginBottom: '4px' }}>{t('timer.appInFocus')}</div>
                   <div className="active-app" style={{ fontSize: '20px', fontWeight: 700, color: '#E2E8F0', marginBottom: '4px' }}>{entry.appName || 'Unknown'}</div>
-                  <div className="active-project" style={{ fontSize: '13px', color: '#718096' }}>→ {t('timer.project')}: {projectLabel}</div>
+                  <div className="active-project" style={{ fontSize: '13px', color: '#FFFFFF' }}>→ {t('timer.project')}: {projectLabel}</div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontSize: '32px', fontWeight: 700, color: '#1FB8A0', fontVariantNumeric: 'tabular-nums', letterSpacing: '1px' }}>{formatTimerDisplay(elapsed)}</div>
@@ -336,8 +336,8 @@ const Dashboard: React.FC = () => {
             <div className="active-project" style={{ fontSize: '13px', color: '#718096' }}>{t('timer.noTracking')}</div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ fontSize: '32px', fontWeight: 700, color: '#4A5568', fontVariantNumeric: 'tabular-nums' }}>00:00:00</div>
-            <div style={{ fontSize: '11px', color: '#4A5568', marginTop: '2px' }}>{t('timer.todayOnProject')}</div>
+            <div style={{ fontSize: '32px', fontWeight: 700, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums' }}>00:00:00</div>
+            <div style={{ fontSize: '11px', color: '#1ca79a', marginTop: '2px' }}>{t('timer.todayOnProject')}</div>
           </div>
         </div>
       )}

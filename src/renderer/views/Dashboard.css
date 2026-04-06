@@ -30,7 +30,7 @@
 
 .active-card {
   margin: 16px 20px;
-  background: linear-gradient(135deg, #0B5563 0%, #14919B 100%);
+  background: linear-gradient(135deg, #0b5664 0%, #138b96 100%);
   border: 1px solid #1FB8A0;
   border-radius: 12px;
   padding: 16px;
@@ -72,7 +72,7 @@
 
 .active-project {
   font-size: 12px;
-  color: #E8F6F5;
+  color: white;
   margin-top: 3px;
 }
 
