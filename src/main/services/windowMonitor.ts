@@ -10,19 +10,32 @@ export interface ActiveWindow {
   timestamp: string;
 }
 
-/**
- * WindowMonitor - Detects active window on Windows
- * Uses PowerShell to get the foreground window process
- *
- * On Windows, we use Get-Process with MainWindowTitle to detect the active window.
- * This is a cross-platform compatible approach that works without native addons.
- *
- * For production, this would use native Win32 API (GetForegroundWindow) via node-ffi
- * or a native addon for better performance and accuracy.
- */
+// PowerShell script using Win32 GetForegroundWindow API — gets the ACTUAL focused window
+const PS_GET_FOREGROUND = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public class WinForeground {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int pid);
+  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder buf, int max);
+}
+"@
+$hwnd = [WinForeground]::GetForegroundWindow()
+$pid = 0
+[WinForeground]::GetWindowThreadProcessId($hwnd, [ref]$pid) | Out-Null
+$sb = New-Object System.Text.StringBuilder 512
+[WinForeground]::GetWindowText($hwnd, $sb, 512) | Out-Null
+$proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+if ($proc) {
+  [PSCustomObject]@{ ProcessName = $proc.ProcessName; WindowTitle = $sb.ToString(); PID = $pid } | ConvertTo-Json -Compress
+}
+`.trim();
+
 export class WindowMonitor extends EventEmitter {
   private intervalId: NodeJS.Timeout | null = null;
-  private pollInterval: number = 1000; // 1 second
+  private pollInterval: number = 1000;
   private lastActiveWindow: ActiveWindow | null = null;
 
   constructor(pollInterval: number = 1000) {
@@ -30,128 +43,85 @@ export class WindowMonitor extends EventEmitter {
     this.pollInterval = pollInterval;
   }
 
-  /**
-   * Start monitoring active window changes
-   */
   start() {
-    if (this.intervalId) {
-      console.warn('WindowMonitor already started');
-      return;
-    }
-
-    console.log('Starting WindowMonitor...');
-
-    this.intervalId = setInterval(() => {
-      this.checkActiveWindow();
-    }, this.pollInterval);
-
-    // Initial check
+    if (this.intervalId) return;
+    console.log('WindowMonitor started (GetForegroundWindow)');
+    this.intervalId = setInterval(() => this.checkActiveWindow(), this.pollInterval);
     this.checkActiveWindow();
   }
 
-  /**
-   * Stop monitoring
-   */
   stop() {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('WindowMonitor stopped');
     }
   }
 
-  /**
-   * Check currently active window
-   * Uses PowerShell on Windows to get the foreground window
-   */
   private async checkActiveWindow() {
     try {
       let activeWindow: ActiveWindow;
 
       if (process.platform === 'win32') {
-        // Windows: Use PowerShell to get active window
-        const command = `powershell -Command "Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object -First 1 | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json"`;
+        const { stdout } = await execAsync(
+          `powershell -NoProfile -NonInteractive -Command "${PS_GET_FOREGROUND.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+          { timeout: 4000, windowsHide: true }
+        );
 
-        const { stdout } = await execAsync(command, {
-          timeout: 5000,
-          windowsHide: true,
-        });
+        if (!stdout.trim()) return;
 
-        if (!stdout.trim()) {
-          return;
-        }
-
-        const result = JSON.parse(stdout);
+        const result = JSON.parse(stdout.trim());
+        if (!result?.ProcessName) return;
 
         activeWindow = {
-          processName: result.ProcessName || 'unknown',
-          windowTitle: result.MainWindowTitle || '',
+          processName: result.ProcessName,
+          windowTitle: result.WindowTitle || '',
           timestamp: new Date().toISOString(),
         };
       } else {
-        // For non-Windows platforms (development on Linux/Mac)
-        // Return a mock active window for testing
+        // Linux/Mac dev fallback — simulate VS Code in focus
         activeWindow = {
-          processName: 'Code', // VS Code as default for testing
+          processName: 'Code',
           windowTitle: 'TimeTrack Development',
           timestamp: new Date().toISOString(),
         };
       }
 
-      // Check if window changed
       if (this.hasWindowChanged(activeWindow)) {
         this.lastActiveWindow = activeWindow;
         this.emit('window-changed', activeWindow);
       }
-    } catch (error) {
-      // Silently ignore errors to avoid spam in console
-      // In production, this would use proper error handling
+    } catch {
+      // Silently ignore — PowerShell errors are transient
     }
   }
 
-  /**
-   * Check if window has changed from last check
-   */
-  private hasWindowChanged(newWindow: ActiveWindow): boolean {
-    if (!this.lastActiveWindow) {
-      return true;
-    }
-
+  private hasWindowChanged(w: ActiveWindow): boolean {
+    if (!this.lastActiveWindow) return true;
     return (
-      this.lastActiveWindow.processName !== newWindow.processName ||
-      this.lastActiveWindow.windowTitle !== newWindow.windowTitle
+      this.lastActiveWindow.processName !== w.processName ||
+      this.lastActiveWindow.windowTitle !== w.windowTitle
     );
   }
 
-  /**
-   * Get current active window (on-demand)
-   */
   async getCurrentWindow(): Promise<ActiveWindow | null> {
     try {
-      if (process.platform === 'win32') {
-        const command = `powershell -Command "Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object -First 1 | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json"`;
+      if (process.platform !== 'win32') return null;
 
-        const { stdout } = await execAsync(command, {
-          timeout: 5000,
-          windowsHide: true,
-        });
+      const { stdout } = await execAsync(
+        `powershell -NoProfile -NonInteractive -Command "${PS_GET_FOREGROUND.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+        { timeout: 4000, windowsHide: true }
+      );
 
-        if (!stdout.trim()) {
-          return null;
-        }
+      if (!stdout.trim()) return null;
+      const result = JSON.parse(stdout.trim());
+      if (!result?.ProcessName) return null;
 
-        const result = JSON.parse(stdout);
-
-        return {
-          processName: result.ProcessName || 'unknown',
-          windowTitle: result.MainWindowTitle || '',
-          timestamp: new Date().toISOString(),
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error getting current window:', error);
+      return {
+        processName: result.ProcessName,
+        windowTitle: result.WindowTitle || '',
+        timestamp: new Date().toISOString(),
+      };
+    } catch {
       return null;
     }
   }
