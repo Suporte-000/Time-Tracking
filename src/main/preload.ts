@@ -113,6 +113,11 @@ const api = {
     ipcRenderer.on(IPC_CHANNELS.USER_ACTIVE, () => callback());
   },
 
+  onTrackingAutoStopped: (callback: (entryId: string) => void) => {
+    ipcRenderer.removeAllListeners('tracking-auto-stopped');
+    ipcRenderer.on('tracking-auto-stopped', (_: any, entryId: string) => callback(entryId));
+  },
+
   // Cleanup listeners
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);

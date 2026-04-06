@@ -275,6 +275,43 @@ class TimeTrackApp {
     // Start monitoring
     this.windowMonitor.start();
     this.activityMonitor.start();
+
+    // Auto-stop tracking when the tracked process exits
+    if (process.platform === 'win32') {
+      setInterval(() => this.checkTrackedProcessStillRunning(), 5000);
+    }
+  }
+
+  private async checkTrackedProcessStillRunning() {
+    try {
+      const entries = this.db?.getTimeEntries() || [];
+      const active = entries.filter(e => !e.endTime && e.processName);
+      if (active.length === 0) return;
+
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+      const { stdout } = await execAsync('tasklist /fo csv /nh', { timeout: 5000, windowsHide: true });
+      const running = new Set(
+        stdout.split(/\r?\n/)
+          .map((l: string) => l.split(',')[0]?.replace(/"/g, '').replace(/\.exe$/i, '').toLowerCase())
+          .filter(Boolean)
+      );
+
+      for (const entry of active) {
+        const key = entry.processName.toLowerCase();
+        if (!running.has(key)) {
+          console.log(`Process "${entry.processName}" exited — stopping tracking entry ${entry.id}`);
+          this.db?.stopTracking(entry.id);
+          // Notify renderer to refresh
+          if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+            this.mainWindow.webContents.send('tracking-auto-stopped', entry.id);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('checkTrackedProcessStillRunning error:', err);
+    }
   }
 
   private handleWindowChange(activeWindow: { processName: string; windowTitle: string }) {

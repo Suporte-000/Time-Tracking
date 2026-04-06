@@ -41,7 +41,13 @@ const Dashboard: React.FC = () => {
     loadProjects(); loadTodayEntries(); loadMonitoredApps();
     // Schedule popup after 2 minutes (virtual simulation of app detection)
     popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);
-    return () => { if (popupTimerRef.current) clearTimeout(popupTimerRef.current); };
+
+    // Refresh when main process auto-stops a tracking entry (process exited)
+    (window.electron as any)?.onTrackingAutoStopped?.(() => { loadTodayEntries(); });
+
+    return () => {
+      if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
