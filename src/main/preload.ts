@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, desktopCapturer } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/types';
 import type { Project, MonitoredApp, SystemConfig, TimeEntry, AppSuggestion } from '../shared/types';
 
@@ -80,26 +80,8 @@ const api = {
     ipcRenderer.send(IPC_CHANNELS.SHOW_MAIN_WINDOW);
   },
 
-  getRunningApps: async (): Promise<{ processName: string; windowTitle: string; icon: string }[]> => {
-    try {
-      const sources = await desktopCapturer.getSources({
-        types: ['window'],
-        thumbnailSize: { width: 0, height: 0 },
-      });
-      const seen = new Set<string>();
-      const apps: { processName: string; windowTitle: string; icon: string }[] = [];
-      for (const src of sources) {
-        const title = src.name?.trim();
-        if (!title || title === 'TimeTrack') continue;
-        if (!seen.has(title.toLowerCase())) {
-          seen.add(title.toLowerCase());
-          apps.push({ processName: title, windowTitle: title, icon: '🖥️' });
-        }
-      }
-      return apps;
-    } catch {
-      return ipcRenderer.invoke(IPC_CHANNELS.GET_RUNNING_APPS);
-    }
+  getRunningApps: (): Promise<{ processName: string; windowTitle: string; icon: string }[]> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_RUNNING_APPS);
   },
 
   windowMinimize: () => {

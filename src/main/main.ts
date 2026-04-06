@@ -1,9 +1,24 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification, shell } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { WindowMonitor } from './services/windowMonitor';
 import { ImprovedActivityMonitor } from './services/activityMonitorImproved';
 import { DatabaseService } from './services/database';
 import { IPC_CHANNELS } from '../shared/types';
+
+// ── Log file setup ──────────────────────────────────────────────────────────
+const LOG_PATH = path.join(app.getPath('userData'), 'timetrack.log');
+const logStream = fs.createWriteStream(LOG_PATH, { flags: 'a' });
+function writeLog(level: string, args: any[]) {
+  const line = `[${new Date().toISOString()}] [${level}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}\n`;
+  logStream.write(line);
+}
+const _origLog = console.log.bind(console);
+const _origWarn = console.warn.bind(console);
+const _origError = console.error.bind(console);
+console.log = (...a) => { _origLog(...a); writeLog('INFO', a); };
+console.warn = (...a) => { _origWarn(...a); writeLog('WARN', a); };
+console.error = (...a) => { _origError(...a); writeLog('ERROR', a); };
 
 class TimeTrackApp {
   private mainWindow: BrowserWindow | null = null;
@@ -189,6 +204,12 @@ class TimeTrackApp {
         },
       },
       { type: 'separator' },
+      {
+        label: 'View Logs',
+        click: () => {
+          shell.openPath(LOG_PATH);
+        },
+      },
       {
         label: 'Sair',
         click: () => {
@@ -437,26 +458,37 @@ class TimeTrackApp {
 
     // Running apps — queries Windows for all processes with a visible window
     ipcMain.handle(IPC_CHANNELS.GET_RUNNING_APPS, async () => {
+      if (process.platform !== 'win32') return [];
       try {
-        const { desktopCapturer } = require('electron');
-        const sources = await desktopCapturer.getSources({
-          types: ['window'],
-          thumbnailSize: { width: 0, height: 0 },
-          fetchWindowIcons: false,
-        });
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+
+        // tasklist /v gives process name + window title, no PowerShell needed
+        // Format: "Name","PID","Session","Num","Mem","Status","User","CPU","Window Title"
+        const { stdout } = await execAsync(
+          'tasklist /v /fo csv /nh',
+          { timeout: 8000, windowsHide: true }
+        );
+
         const seen = new Set<string>();
         const apps: { processName: string; windowTitle: string; icon: string }[] = [];
-        for (const src of sources) {
-          const title = src.name?.trim();
-          if (!title || title === 'TimeTrack') continue;
-          // src.id is like "window:1234:0" — extract a short key from the title
-          const key = title.toLowerCase();
+        const lines = stdout.trim().split(/\r?\n/);
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          // CSV parse: split by "," but respect quotes
+          const cols = line.match(/(".*?"|[^,]+)(?=,|$)/g) || [];
+          const exeName = cols[0]?.replace(/"/g, '').replace(/\.exe$/i, '').trim();
+          const windowTitle = cols[8]?.replace(/"/g, '').trim();
+          if (!exeName || !windowTitle || windowTitle === 'N/A') continue;
+          if (exeName.toLowerCase() === 'timetrack') continue;
+          const key = exeName.toLowerCase();
           if (!seen.has(key)) {
             seen.add(key);
-            apps.push({ processName: title, windowTitle: title, icon: '🖥️' });
+            apps.push({ processName: exeName, windowTitle, icon: '🖥️' });
           }
         }
-        console.log('GET_RUNNING_APPS:', apps.length, 'windows');
+        console.log('GET_RUNNING_APPS:', apps.length, 'apps');
         return apps;
       } catch (err) {
         console.error('GET_RUNNING_APPS error:', err);
