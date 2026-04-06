@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Project, MonitoredApp } from '../../shared/types';
+import { Project } from '../../shared/types';
 import { useI18n } from '../i18nContext';
+
+interface RunningApp {
+  processName: string;
+  windowTitle: string;
+  icon: string;
+}
 
 interface ProjectPopupProps {
   appName: string;
@@ -32,9 +38,9 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
 
   // Step 1: pick program, Step 2: pick project
   const [step, setStep] = useState<1 | 2>(1);
-  const [monitoredApps, setMonitoredApps] = useState<MonitoredApp[]>([]);
+  const [runningApps, setRunningApps] = useState<RunningApp[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedApp, setSelectedApp] = useState<MonitoredApp | null>(null);
+  const [selectedApp, setSelectedApp] = useState<RunningApp | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [countdown, setCountdown] = useState(30);
@@ -50,15 +56,15 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
   const loadData = async () => {
     try {
       const [apps, allProjects] = await Promise.all([
-        window.electron.getMonitoredApps(),
+        window.electron.getRunningApps(),
         window.electron.getProjects(),
       ]);
-      const enabledApps = (apps as MonitoredApp[]).filter(a => a.isEnabled);
-      setMonitoredApps(enabledApps);
+      const running = apps as RunningApp[];
+      setRunningApps(running);
       setProjects((allProjects as Project[]).filter(p => p.isActive));
 
       // Pre-select the detected app if it matches
-      const matched = enabledApps.find(
+      const matched = running.find(
         a => a.processName.toLowerCase() === processName.toLowerCase()
       );
       if (matched) setSelectedApp(matched);
@@ -73,7 +79,7 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
 
   const handleConfirm = () => {
     if (!selectedProjectId || !selectedApp) return;
-    onSelect(selectedProjectId, selectedApp.name, selectedApp.processName);
+    onSelect(selectedProjectId, selectedApp.windowTitle, selectedApp.processName);
   };
 
   // ── STEP 1 — Select Program ─────────────────────────────────────────────
@@ -92,15 +98,15 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
 
         {/* App list */}
         <div style={{ padding: '12px 16px', maxHeight: '280px', overflowY: 'auto' }}>
-          {monitoredApps.length === 0 ? (
+          {runningApps.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '20px', color: '#4A5568', fontSize: '13px' }}>
-              No monitored apps configured
+              No running programs detected
             </div>
           ) : (
-            monitoredApps.map(app => {
-              const isSelected = selectedApp?.id === app.id;
+            runningApps.map(app => {
+              const isSelected = selectedApp?.processName === app.processName;
               return (
-                <div key={app.id} onClick={() => setSelectedApp(app)}
+                <div key={app.processName} onClick={() => setSelectedApp(app)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '12px',
                     padding: '10px 12px', marginBottom: '6px', borderRadius: '8px',
@@ -108,9 +114,9 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
                     border: `1px solid ${isSelected ? '#1FB8A0' : '#1E2A3A'}`,
                     cursor: 'pointer', transition: 'all 0.15s',
                   }}>
-                  <span style={{ fontSize: '22px', width: '32px', textAlign: 'center' }}>{getAppIcon(app.name)}</span>
+                  <span style={{ fontSize: '22px', width: '32px', textAlign: 'center' }}>{getAppIcon(app.processName)}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>{app.name}</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>{app.windowTitle}</div>
                     <div style={{ fontSize: '11px', color: '#4A5568' }}>{app.processName}.exe</div>
                   </div>
                   {isSelected && (
@@ -140,7 +146,7 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
       {/* Header */}
       <div style={headerStyle}>
         <button onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: '#718096', cursor: 'pointer', fontSize: '14px', padding: 0, marginBottom: '4px' }}>
-          ← {selectedApp?.name}
+          ← {selectedApp?.windowTitle}
         </button>
         <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', color: '#1FB8A0' }}>
           SELECT PROJECT

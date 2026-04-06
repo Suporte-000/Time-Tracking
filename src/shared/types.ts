@@ -136,6 +136,7 @@ export const IPC_CHANNELS = {
   MINIMIZE_TO_TRAY: 'minimize-to-tray',
   SHOW_NOTIFICATION: 'show-notification',
   SHOW_MAIN_WINDOW: 'show-main-window',
+  GET_RUNNING_APPS: 'get-running-apps',
   WINDOW_MINIMIZE: 'window-minimize',
   WINDOW_MAXIMIZE: 'window-maximize',
   WINDOW_CLOSE: 'window-close',

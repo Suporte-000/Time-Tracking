@@ -62,6 +62,7 @@ class TimeTrackApp {
       minWidth: 800,
       minHeight: 500,
       center: true,
+      maximizable: true,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -82,10 +83,10 @@ class TimeTrackApp {
 
     this.mainWindow.once('ready-to-show', () => {
       this.mainWindow?.show();
-      // Ensure it's not maximized on first show
-      if (this.mainWindow?.isMaximized()) {
-        this.mainWindow.unmaximize();
-      }
+      // // Ensure it's not maximized on first show
+      // if (this.mainWindow?.isMaximized()) {
+      //   this.mainWindow.unmaximize();
+      // }
     });
 
     // Intercept OS close button — hide to tray instead of quitting
@@ -191,7 +192,7 @@ class TimeTrackApp {
       {
         label: 'Sair',
         click: () => {
-          app.quit();
+          app.exit();
         },
       },
     ]);
@@ -432,6 +433,40 @@ class TimeTrackApp {
     // Suggestions
     ipcMain.handle(IPC_CHANNELS.GET_SUGGESTION, (_, processName: string) => {
       return this.db?.getSuggestion(processName);
+    });
+
+    // Running apps — queries Windows for all processes with a visible window
+    ipcMain.handle(IPC_CHANNELS.GET_RUNNING_APPS, async () => {
+      if (process.platform !== 'win32') {
+        // Dev fallback on Linux/Mac
+        return [
+          { processName: 'Code', windowTitle: 'Visual Studio Code', icon: '💻' },
+          { processName: 'chrome', windowTitle: 'Google Chrome', icon: '🌐' },
+          { processName: 'figma', windowTitle: 'Figma', icon: '🎨' },
+        ];
+      }
+      try {
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+        const ps = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json`;
+        const { stdout } = await execAsync(
+          `powershell -NoProfile -NonInteractive -Command "${ps}"`,
+          { timeout: 5000, windowsHide: true }
+        );
+        if (!stdout.trim()) return [];
+        const raw = JSON.parse(stdout.trim());
+        const list = Array.isArray(raw) ? raw : [raw];
+        return list
+          .filter((p: { ProcessName: string; MainWindowTitle: string }) => p.ProcessName && p.MainWindowTitle)
+          .map((p: { ProcessName: string; MainWindowTitle: string }) => ({
+            processName: p.ProcessName,
+            windowTitle: p.MainWindowTitle,
+            icon: '🖥️',
+          }));
+      } catch {
+        return [];
+      }
     });
 
     // System

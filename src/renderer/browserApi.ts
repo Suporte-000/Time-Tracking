@@ -163,6 +163,15 @@ export const browserApi = {
     return defaults;
   },
 
+  getRunningApps: async () => {
+    return [
+      { processName: 'Code', windowTitle: 'Visual Studio Code', icon: '💻' },
+      { processName: 'chrome', windowTitle: 'Google Chrome', icon: '🌐' },
+      { processName: 'figma', windowTitle: 'Figma', icon: '🎨' },
+      { processName: 'Teams', windowTitle: 'Microsoft Teams', icon: '💬' },
+    ];
+  },
+
   updateMonitoredApp: async (app: { id: string;[key: string]: unknown }) => {
     const stored = localStorage.getItem('timetrack_monitored_apps');
     const apps = stored ? JSON.parse(stored) : [];

@@ -80,6 +80,10 @@ const api = {
     ipcRenderer.send(IPC_CHANNELS.SHOW_MAIN_WINDOW);
   },
 
+  getRunningApps: (): Promise<{ processName: string; windowTitle: string; icon: string }[]> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_RUNNING_APPS);
+  },
+
   windowMinimize: () => {
     ipcRenderer.send(IPC_CHANNELS.WINDOW_MINIMIZE);
   },
