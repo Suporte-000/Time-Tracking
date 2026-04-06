@@ -92,7 +92,7 @@ const Dashboard: React.FC = () => {
   };
 
   const handleStopTimer = async (entryId: string) => {
-    try { await window.electron.stopTracking(entryId); setActiveEntries(prev => prev.filter(e => e.id !== entryId)); await loadTodayEntries(); }
+    try { await window.electron.stopTracking(entryId, 'manual'); setActiveEntries(prev => prev.filter(e => e.id !== entryId)); await loadTodayEntries(); }
     catch (error) { console.error('Error stopping timer:', error); }
   };
 
@@ -119,7 +119,7 @@ const Dashboard: React.FC = () => {
   };
 
   const handleStopAll = async () => {
-    for (const entry of activeEntries) { try { await window.electron.stopTracking(entry.id); } catch {} }
+    for (const entry of activeEntries) { try { await window.electron.stopTracking(entry.id, 'manual'); } catch {} }
     setActiveEntries([]); await loadTodayEntries();
   };
 

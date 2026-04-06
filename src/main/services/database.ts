@@ -400,7 +400,7 @@ export class DatabaseService {
     };
   }
 
-  stopTracking(entryId: string): boolean {
+  stopTracking(entryId: string, status?: string): boolean {
     const entry = this.db.prepare('SELECT * FROM time_entries WHERE id = ?').get(entryId) as any;
     if (!entry) return false;
 
@@ -408,12 +408,13 @@ export class DatabaseService {
     const duration = Math.floor(
       (new Date(endTime).getTime() - new Date(entry.startTime).getTime()) / 1000
     );
+    const finalStatus = status ?? entry.status ?? 'auto';
 
     const result = this.db
       .prepare(
-        `UPDATE time_entries SET endTime = ?, duration = ?, updatedAt = ? WHERE id = ?`
+        `UPDATE time_entries SET endTime = ?, duration = ?, status = ?, updatedAt = ? WHERE id = ?`
       )
-      .run(endTime, duration, new Date().toISOString(), entryId);
+      .run(endTime, duration, finalStatus, new Date().toISOString(), entryId);
 
     return result.changes > 0;
   }

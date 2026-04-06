@@ -19,7 +19,7 @@ declare global {
       updateConfig: (config: any) => Promise<any>;
       getTimeEntries: (date?: string) => Promise<any[]>;
       startTracking: (data: any) => Promise<any>;
-      stopTracking: (entryId: string) => Promise<any>;
+      stopTracking: (entryId: string, status?: string) => Promise<any>;
       deleteTimeEntry: (entryId: string) => Promise<any>;
       getSuggestion: (processName: string) => Promise<any>;
       getRunningApps: () => Promise<{ processName: string; windowTitle: string; icon: string }[]>;

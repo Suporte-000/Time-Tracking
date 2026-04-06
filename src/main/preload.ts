@@ -62,8 +62,8 @@ const api = {
     return ipcRenderer.invoke(IPC_CHANNELS.START_TRACKING, data);
   },
 
-  stopTracking: (entryId: string): Promise<boolean> => {
-    return ipcRenderer.invoke(IPC_CHANNELS.STOP_TRACKING, entryId);
+  stopTracking: (entryId: string, status?: string): Promise<boolean> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.STOP_TRACKING, entryId, status);
   },
 
   // Suggestions

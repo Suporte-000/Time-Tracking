@@ -72,14 +72,13 @@ class TimeTrackApp {
 
   private createMainWindow() {
     this.mainWindow = new BrowserWindow({
-      fullscreen:true,
+      fullscreen: true,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
         preload: path.join(__dirname, 'preload.js'),
       },
-      titleBarStyle: 'default',
-      frame: true,
+      frame: false,
       show: false,
     });
 
@@ -185,7 +184,7 @@ class TimeTrackApp {
         label: currentTracking ? 'Parar Rastreamento' : 'Iniciar Manual',
         click: () => {
           if (currentTracking) {
-            this.db?.stopTracking(currentTracking.id);
+            this.db?.stopTracking(currentTracking.id, 'manual');
           }
           this.mainWindow?.show();
         },
@@ -503,8 +502,8 @@ class TimeTrackApp {
       return this.db?.startTracking(data);
     });
 
-    ipcMain.handle(IPC_CHANNELS.STOP_TRACKING, (_, entryId: string) => {
-      return this.db?.stopTracking(entryId);
+    ipcMain.handle(IPC_CHANNELS.STOP_TRACKING, (_, entryId: string, status?: string) => {
+      return this.db?.stopTracking(entryId, status);
     });
 
     // Suggestions
