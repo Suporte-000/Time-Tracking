@@ -16,13 +16,12 @@ const PopupApp: React.FC = () => {
     setAppData({ appName, processName });
   }, []);
 
-  const handleSelect = async (projectId: string) => {
-    if (!appData) return;
+  const handleSelect = async (projectId: string, appName: string, processName: string) => {
     try {
       await window.electron.startTracking({
         projectId,
-        appName: appData.appName,
-        processName: appData.processName,
+        appName,
+        processName,
       });
       // Show main window so user can see the active timer and stop it
       window.electron.showMainWindow?.();

@@ -6,8 +6,6 @@ import History from './views/History';
 import Configuration from './views/Configuration';
 import Management from './views/Management';
 import Sidebar from './components/Sidebar';
-import TitleBar from './components/TitleBar';
-
 type View = 'dashboard' | 'popup' | 'history' | 'config' | 'management';
 
 function App() {
@@ -44,8 +42,6 @@ function App() {
 
   return (
     <div className="app-container">
-      <TitleBar isTracking={isTracking} />
-
       <div className="app-body">
         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
 

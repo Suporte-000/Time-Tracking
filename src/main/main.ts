@@ -61,6 +61,7 @@ class TimeTrackApp {
       height: 620,
       minWidth: 800,
       minHeight: 500,
+      center: true,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -81,6 +82,10 @@ class TimeTrackApp {
 
     this.mainWindow.once('ready-to-show', () => {
       this.mainWindow?.show();
+      // Ensure it's not maximized on first show
+      if (this.mainWindow?.isMaximized()) {
+        this.mainWindow.unmaximize();
+      }
     });
 
     // Intercept OS close button — hide to tray instead of quitting

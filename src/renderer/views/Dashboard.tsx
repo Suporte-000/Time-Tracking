@@ -104,9 +104,12 @@ const Dashboard: React.FC = () => {
     setShowPopup(true);
   };
 
-  const handlePopupSelect = async (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
-    if (project) await handleStartTimer(project);
+  const handlePopupSelect = async (projectId: string, appName: string, processName: string) => {
+    try {
+      const entry = await window.electron.startTracking({ userId: 'browser-user', projectId, appName, processName });
+      setActiveEntries(prev => [...prev, entry]);
+      await loadTodayEntries();
+    } catch (e) { console.error(e); }
     setShowPopup(false);
     // Reset timer so popup can appear again after another 2 minutes
     popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);

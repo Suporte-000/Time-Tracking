@@ -55,13 +55,13 @@ const PopupDemo: React.FC = () => {
     setShowPopup(true);
   };
 
-  const handleSelect = async (projectId: string) => {
+  const handleSelect = async (projectId: string, appName: string, processName: string) => {
     try {
       await window.electron.startTracking({
         userId: 'browser-user',
         projectId,
-        appName: 'Browser (Manual)',
-        processName: 'browser',
+        appName,
+        processName,
       });
       setLastTracked({ projectId, appName: 'Browser (Manual)' });
       setShowPopup(false);
