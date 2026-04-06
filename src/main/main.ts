@@ -561,6 +561,10 @@ class TimeTrackApp {
       }
     });
 
+    ipcMain.on(IPC_CHANNELS.SHOW_POPUP, (_, appName: string, processName: string) => {
+      this.createPopupWindow(appName || '', processName || '');
+    });
+
     // Renderer log — writes renderer-side messages to the log file
     ipcMain.on(IPC_CHANNELS.RENDERER_LOG, (_, level: string, message: string) => {
       writeLog(`RENDERER:${level}`, [message]);

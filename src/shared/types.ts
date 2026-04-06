@@ -141,6 +141,7 @@ export const IPC_CHANNELS = {
   WINDOW_MAXIMIZE: 'window-maximize',
   WINDOW_CLOSE: 'window-close',
   RENDERER_LOG: 'renderer-log',
+  SHOW_POPUP: 'show-popup',
 } as const;
 
 export interface ActiveWindow {

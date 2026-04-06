@@ -88,6 +88,10 @@ const api = {
     ipcRenderer.send(IPC_CHANNELS.RENDERER_LOG, level, message);
   },
 
+  showPopup: (appName: string, processName: string) => {
+    ipcRenderer.send(IPC_CHANNELS.SHOW_POPUP, appName, processName);
+  },
+
   windowMinimize: () => {
     ipcRenderer.send(IPC_CHANNELS.WINDOW_MINIMIZE);
   },
