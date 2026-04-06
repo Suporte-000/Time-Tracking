@@ -30,8 +30,8 @@
 
 .active-card {
   margin: 16px 20px;
-  background: linear-gradient(135deg, #0B5563 0%, #14919B 100%);
-  border: 1px solid #1FB8A0;
+  background: #161C26;
+  border: 1px solid #1E2A3A;
   border-radius: 12px;
   padding: 16px;
   display: flex;

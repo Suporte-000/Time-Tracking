@@ -31,7 +31,7 @@ const TitleBar: React.FC<TitleBarProps> = ({ isTracking }) => {
       <div className="title-bar-left">
         <div className="win-btn btn-red" onClick={() => window.electron?.windowClose?.()} title="Close" />
         <div className="win-btn btn-yellow" onClick={() => window.electron?.windowMinimize?.()} title="Minimize" />
-        <div className="win-btn btn-green" onClick={() => window.electron?.windowMaximize?.()} title="Maximize" />
+        <div className="win-btn btn-green" style={{ opacity: 0.3, cursor: 'default' }} title="" />
       </div>
 
       <div className="title-text">{t('titlebar.title')}</div>

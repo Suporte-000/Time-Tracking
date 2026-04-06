@@ -73,6 +73,7 @@ class TimeTrackApp {
   private createMainWindow() {
     this.mainWindow = new BrowserWindow({
       fullscreen: true,
+      resizable: false,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
