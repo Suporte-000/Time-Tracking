@@ -23,6 +23,7 @@ declare global {
       deleteTimeEntry: (entryId: string) => Promise<any>;
       getSuggestion: (processName: string) => Promise<any>;
       getRunningApps: () => Promise<{ processName: string; windowTitle: string; icon: string }[]>;
+      rendererLog?: (level: string, message: string) => void;
       onActiveWindowChanged: (callback: (data: any) => void) => void;
       onUserInactive: (callback: () => void) => void;
       onUserActive: (callback: () => void) => void;

@@ -84,6 +84,10 @@ const api = {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_RUNNING_APPS);
   },
 
+  rendererLog: (level: string, message: string) => {
+    ipcRenderer.send(IPC_CHANNELS.RENDERER_LOG, level, message);
+  },
+
   windowMinimize: () => {
     ipcRenderer.send(IPC_CHANNELS.WINDOW_MINIMIZE);
   },

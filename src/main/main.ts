@@ -505,6 +505,11 @@ class TimeTrackApp {
       }
     });
 
+    // Renderer log — writes renderer-side messages to the log file
+    ipcMain.on(IPC_CHANNELS.RENDERER_LOG, (_, level: string, message: string) => {
+      writeLog(`RENDERER:${level}`, [message]);
+    });
+
     // System
     ipcMain.on(IPC_CHANNELS.MINIMIZE_TO_TRAY, () => {
       this.mainWindow?.hide();

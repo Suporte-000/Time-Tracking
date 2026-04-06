@@ -55,24 +55,35 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
     return () => clearTimeout(timer);
   }, [countdown, onDismiss]);
 
+  const rlog = (level: string, msg: string) => {
+    (window.electron as any)?.rendererLog?.(level, msg);
+    console.log(`[Popup][${level}] ${msg}`);
+  };
+
   const loadData = async () => {
     setLoadingApps(true);
+    rlog('INFO', 'loadData called');
+    rlog('INFO', `window.electron exists: ${!!window.electron}`);
+    rlog('INFO', `getRunningApps exists: ${!!(window.electron as any)?.getRunningApps}`);
     try {
-      const [apps, allProjects] = await Promise.all([
-        window.electron.getRunningApps ? window.electron.getRunningApps() : Promise.resolve([]),
-        window.electron.getProjects(),
-      ]);
+      rlog('INFO', 'calling getRunningApps...');
+      const apps = await (window.electron.getRunningApps
+        ? window.electron.getRunningApps()
+        : Promise.resolve([]));
+      rlog('INFO', `getRunningApps returned ${apps?.length ?? 'null'} items`);
+      rlog('INFO', `first 3: ${JSON.stringify(apps?.slice(0, 3))}`);
+
+      const allProjects = await window.electron.getProjects();
       const running = (apps as RunningApp[]) || [];
       setRunningApps(running);
       setProjects((allProjects as Project[]).filter(p => p.isActive));
 
-      // Pre-select the detected app if it matches
       const matched = running.find(
         a => a.processName.toLowerCase() === processName.toLowerCase()
       );
       if (matched) setSelectedApp(matched);
-    } catch (e) {
-      console.error('loadData error:', e);
+    } catch (e: any) {
+      rlog('ERROR', `loadData error: ${e?.message || e}`);
     } finally {
       setLoadingApps(false);
     }
