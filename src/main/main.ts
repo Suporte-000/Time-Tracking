@@ -12,13 +12,18 @@ import { IPC_CHANNELS } from '../shared/types';
 function loadEnv() {
   const candidates = [
     path.join(process.cwd(), '.env'),
+    path.join(__dirname, '.env'),
+    path.join(__dirname, '../.env'),
     path.join(__dirname, '../../.env'),
     path.join(__dirname, '../../../.env'),
+    path.join(path.dirname(process.execPath), '.env'),
     path.join(app.getAppPath(), '.env'),
+    path.join(app.getPath('userData'), '.env'),
   ];
+  console.log('[ENV] Searching for .env, cwd:', process.cwd(), '__dirname:', __dirname);
   for (const envPath of candidates) {
+    console.log('[ENV] Checking:', envPath, '→', fs.existsSync(envPath) ? 'FOUND' : 'not found');
     if (fs.existsSync(envPath)) {
-      console.log('[ENV] Loading from:', envPath);
       const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
       for (const line of lines) {
         const trimmed = line.trim();
@@ -27,12 +32,13 @@ function loadEnv() {
         if (eqIdx < 0) continue;
         const key = trimmed.substring(0, eqIdx).trim();
         const val = trimmed.substring(eqIdx + 1).trim();
-        if (key && !process.env[key]) process.env[key] = val;
+        if (key) process.env[key] = val;
       }
+      console.log('[ENV] Loaded from:', envPath);
       break;
     }
   }
-  console.log('[ENV] DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
+  console.log('[ENV] DATABASE_URL:', process.env.DATABASE_URL ? 'SET ✓' : 'NOT SET ✗');
 }
 loadEnv();
 
@@ -73,8 +79,22 @@ class TimeTrackApp {
     // Initialize database
     this.db = new DatabaseService();
 
-    // Re-load .env now that app is ready (getAppPath is now valid)
+    // Re-load .env now that app is ready (getAppPath + userData are now valid)
     loadEnv();
+
+    // If DATABASE_URL still not set, check if there's a .env in userData
+    // (useful for packaged apps — user can put .env next to the exe or in userData)
+    if (!process.env.DATABASE_URL) {
+      const userDataEnv = path.join(app.getPath('userData'), '.env');
+      console.log('[ENV] userData .env path:', userDataEnv);
+      if (!fs.existsSync(userDataEnv)) {
+        // Create a template .env in userData so user knows where to put it
+        fs.writeFileSync(userDataEnv,
+          '# Paste your Railway DATABASE_URL below\nDATABASE_URL=\n'
+        );
+        console.log('[ENV] Created template .env in userData:', userDataEnv);
+      }
+    }
 
     // Initialize PostgreSQL + sync
     this.pg = new PostgresService();
