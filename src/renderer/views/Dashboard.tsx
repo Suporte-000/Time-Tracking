@@ -301,16 +301,16 @@ const Dashboard: React.FC = () => {
               ? `${project.name}${project.subproject ? ` › ${project.subproject}` : ''}`
               : '—';
             return (
-              <div key={entry.id} className="active-card" style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px' }}>
+              <div key={entry.id} className="active-card" style={{ marginBottom: '8px' }}>
                 <div style={{ fontSize: '32px', width: '48px',textAlign: 'center', flexShrink: 0 }}>💻</div>
                 <div className="active-info" style={{ flex: 1 }}>
-                  <div className="active-label" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', color: '#1FB8A0', marginBottom: '4px' }}>{t('timer.appInFocus')}</div>
-                  <div className="active-app" style={{ fontSize: '20px', fontWeight: 700, color: '#E2E8F0', marginBottom: '4px' }}>{projectLabel}</div>
-                  <div className="active-project" style={{ fontSize: '13px', color: '#FFFFFF' }}>→ {entry.appName || 'Unknown'}</div>
+                  <div className="active-label" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', color: '#E8F6F5', marginBottom: '4px' }}>{t('timer.appInFocus')}</div>
+                  <div className="active-app" style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>{projectLabel}</div>
+                  <div className="active-project" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)' }}>→ {entry.appName || 'Unknown'}</div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: '32px', fontWeight: 700, color: '#1FB8A0', fontVariantNumeric: 'tabular-nums', letterSpacing: '1px' }}>{formatTimerDisplay(elapsed)}</div>
-                  <div style={{ fontSize: '11px', color: '#718096', marginTop: '2px', marginBottom: '8px' }}>{t('timer.todayOnProject')}</div>
+                  <div style={{ fontSize: '32px', fontWeight: 700, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums', letterSpacing: '1px' }}>{formatTimerDisplay(elapsed)}</div>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px', marginBottom: '8px' }}>{t('timer.todayOnProject')}</div>
                   <button onClick={() => handleStopTimer(entry.id)}
                     style={{ padding: '6px 18px', background: '#E85D75', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                     ■ {t('timer.stop')}
@@ -329,16 +329,16 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="active-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 24px' }}>
+        <div className="active-card">
           <div style={{ fontSize: '32px', width: '48px', textAlign: 'center', flexShrink: 0 }}>💻</div>
           <div className="active-info" style={{ flex: 1 }}>
-            <div className="active-label" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', color: '#1FB8A0', marginBottom: '4px' }}>{t('timer.appInFocus')}</div>
-            <div className="active-app" style={{ fontSize: '20px', fontWeight: 700, color: '#E2E8F0', marginBottom: '4px' }}>—</div>
-            <div className="active-project" style={{ fontSize: '13px', color: '#718096' }}>{t('timer.noTracking')}</div>
+            <div className="active-label" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', color: '#E8F6F5', marginBottom: '4px' }}>{t('timer.appInFocus')}</div>
+            <div className="active-app" style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>—</div>
+            <div className="active-project" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>{t('timer.noTracking')}</div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: '32px', fontWeight: 700, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums' }}>00:00:00</div>
-            <div style={{ fontSize: '11px', color: '#1ca79a', marginTop: '2px' }}>{t('timer.todayOnProject')}</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>{t('timer.todayOnProject')}</div>
           </div>
         </div>
       )}

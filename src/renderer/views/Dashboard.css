@@ -33,10 +33,12 @@
   background: linear-gradient(135deg, #0b5664 0%, #138b96 100%);
   border: 1px solid #1FB8A0;
   border-radius: 12px;
-  padding: 16px;
+  padding: 20px 24px;
   display: flex;
   align-items: center;
   gap: 16px;
+  min-height: 90px;
+  box-sizing: border-box;
 }
 
 .active-app-icon {
