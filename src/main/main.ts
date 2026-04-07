@@ -376,6 +376,13 @@ class TimeTrackApp {
       return;
     }
 
+    // Don't show popup if there are no projects configured
+    const projects = this.db?.getProjects?.() ?? [];
+    if (projects.length === 0) {
+      console.log('No projects configured, skipping popup');
+      return;
+    }
+
     const isMinimized = !this.mainWindow || this.mainWindow.isMinimized() || !this.mainWindow.isVisible();
 
     if (isMinimized && Notification.isSupported()) {
