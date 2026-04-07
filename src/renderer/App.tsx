@@ -7,11 +7,19 @@ import Configuration from './views/Configuration';
 import Management from './views/Management';
 import Sidebar from './components/Sidebar';
 import TitleBar from './components/TitleBar';
+import FirstRunSetup from './components/FirstRunSetup';
 type View = 'dashboard' | 'popup' | 'history' | 'config' | 'management';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isTracking, setIsTracking] = useState(true);
+  const [firstRun, setFirstRun] = useState(false);
+
+  useEffect(() => {
+    window.electron.getLocalUser?.().then(u => {
+      if (!u) setFirstRun(true);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Listen for active window changes
@@ -43,6 +51,12 @@ function App() {
 
   return (
     <div className="app-container">
+      {firstRun && (
+        <FirstRunSetup onComplete={async (user) => {
+          await window.electron.saveLocalUser?.(user);
+          setFirstRun(false);
+        }} />
+      )}
       <TitleBar isTracking={isTracking} />
       <div className="app-body">
         <Sidebar currentView={currentView} onViewChange={setCurrentView} />

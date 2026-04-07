@@ -3,7 +3,7 @@ import path from 'path';
 
 const external = [
   'electron', 'path', 'fs', 'child_process', 'util', 'os', 'events',
-  'better-sqlite3', 'active-win', /^node:/,
+  'better-sqlite3', 'active-win', 'pg', 'bcryptjs', /^node:/,
 ];
 
 // Build main and preload as separate single-file bundles.

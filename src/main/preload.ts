@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/types';
-import type { Project, MonitoredApp, SystemConfig, TimeEntry, AppSuggestion } from '../shared/types';
+import type { Project, MonitoredApp, SystemConfig, TimeEntry, AppSuggestion, LocalUserConfig, TeamMember, TeamTimeEntry, TeamAuditLog } from '../shared/types';
 
 /**
  * Preload script - Exposes safe IPC methods to renderer process
@@ -126,6 +126,52 @@ const api = {
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);
   },
+
+  // ── Team / PostgreSQL ──────────────────────────────────────────────────────
+  getPostgresStatus: (): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_POSTGRES_STATUS),
+
+  getLocalUser: (): Promise<LocalUserConfig | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_LOCAL_USER),
+
+  saveLocalUser: (config: Omit<LocalUserConfig, 'id'> & { id?: string }): Promise<LocalUserConfig> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SAVE_LOCAL_USER, config),
+
+  getUserColors: (): Promise<string[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_USER_COLORS),
+
+  getTeamMembers: (): Promise<TeamMember[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_TEAM_MEMBERS),
+
+  addTeamMember: (member: Omit<TeamMember, 'created_at'>): Promise<TeamMember> =>
+    ipcRenderer.invoke(IPC_CHANNELS.ADD_TEAM_MEMBER, member),
+
+  updateTeamMember: (id: string, updates: Partial<TeamMember>): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UPDATE_TEAM_MEMBER, id, updates),
+
+  removeTeamMember: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.REMOVE_TEAM_MEMBER, id),
+
+  getTeamEntries: (date: string): Promise<TeamTimeEntry[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_TEAM_ENTRIES, date),
+
+  adjustTimeEntry: (data: any): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.ADJUST_TIME_ENTRY, data),
+
+  getAuditLog: (date: string): Promise<TeamAuditLog[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_AUDIT_LOG, date),
+
+  setManagerPin: (pin: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SET_MANAGER_PIN, pin),
+
+  verifyManagerPin: (pin: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.VERIFY_MANAGER_PIN, pin),
+
+  hasManagerPin: (): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.HAS_MANAGER_PIN),
+
+  exportWeeklyReport: (userId: string, userName: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, userId, userName),
 };
 
 // Expose the API to the renderer process

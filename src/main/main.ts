@@ -4,7 +4,19 @@ import fs from 'fs';
 import { WindowMonitor } from './services/windowMonitor';
 import { ImprovedActivityMonitor } from './services/activityMonitorImproved';
 import { DatabaseService } from './services/database';
+import { PostgresService } from './services/postgresService';
+import { SyncService } from './services/syncService';
 import { IPC_CHANNELS } from '../shared/types';
+
+// Load .env
+const envPath = path.join(app.getAppPath(), '.env');
+if (fs.existsSync(envPath)) {
+  const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
+  for (const line of lines) {
+    const [key, ...rest] = line.split('=');
+    if (key && rest.length) process.env[key.trim()] = rest.join('=').trim();
+  }
+}
 
 // ── Log file setup ──────────────────────────────────────────────────────────
 const LOG_PATH = path.join(app.getPath('userData'), 'timetrack.log');
@@ -27,6 +39,8 @@ class TimeTrackApp {
   private windowMonitor: WindowMonitor | null = null;
   private activityMonitor: ImprovedActivityMonitor | null = null;
   private db: DatabaseService | null = null;
+  private pg: PostgresService | null = null;
+  private sync: SyncService | null = null;
   private popupTimers: Map<string, NodeJS.Timeout> = new Map();
   private currentActiveProcess: string | null = null;
 
@@ -40,6 +54,11 @@ class TimeTrackApp {
 
     // Initialize database
     this.db = new DatabaseService();
+
+    // Initialize PostgreSQL + sync
+    this.pg = new PostgresService();
+    this.sync = new SyncService(this.pg, this.db);
+    this.pg.connect().catch(err => console.warn('[Postgres] Could not connect:', err.message));
 
     // Create main window
     // Remove default menu bar (File/Edit/View/Window/Help)
@@ -515,12 +534,16 @@ class TimeTrackApp {
       return this.db?.getTimeEntries(date);
     });
 
-    ipcMain.handle(IPC_CHANNELS.START_TRACKING, (_, data) => {
-      return this.db?.startTracking(data);
+    ipcMain.handle(IPC_CHANNELS.START_TRACKING, async (_, data) => {
+      const entry = this.db?.startTracking(data);
+      if (entry) this.sync?.syncEntry(entry.id).catch(() => {});
+      return entry;
     });
 
-    ipcMain.handle(IPC_CHANNELS.STOP_TRACKING, (_, entryId: string, status?: string) => {
-      return this.db?.stopTracking(entryId, status);
+    ipcMain.handle(IPC_CHANNELS.STOP_TRACKING, async (_, entryId: string, status?: string) => {
+      const result = this.db?.stopTracking(entryId, status);
+      if (result) this.sync?.syncEntry(entryId).catch(() => {});
+      return result;
     });
 
     // Suggestions
@@ -619,6 +642,83 @@ class TimeTrackApp {
     // Close hides to tray — does NOT quit the app
     ipcMain.on(IPC_CHANNELS.WINDOW_CLOSE, () => {
       this.mainWindow?.hide();
+    });
+
+    // ── Team / PostgreSQL handlers ────────────────────────────────────────────
+
+    ipcMain.handle(IPC_CHANNELS.GET_POSTGRES_STATUS, () => {
+      return this.pg?.isConnected() ?? false;
+    });
+
+    ipcMain.handle(IPC_CHANNELS.GET_LOCAL_USER, () => {
+      return this.sync?.getLocalUser() ?? null;
+    });
+
+    ipcMain.handle(IPC_CHANNELS.SAVE_LOCAL_USER, async (_, config) => {
+      return this.sync?.saveLocalUser(config);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.GET_USER_COLORS, () => {
+      return this.sync?.getAvailableColors() ?? [];
+    });
+
+    ipcMain.handle(IPC_CHANNELS.GET_TEAM_MEMBERS, async () => {
+      return this.pg?.getTeamMembers() ?? [];
+    });
+
+    ipcMain.handle(IPC_CHANNELS.ADD_TEAM_MEMBER, async (_, member) => {
+      if (!this.pg) return null;
+      return this.pg.addTeamMember(member);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.UPDATE_TEAM_MEMBER, async (_, id: string, updates) => {
+      if (!this.pg) return false;
+      return this.pg.updateTeamMember(id, updates);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.REMOVE_TEAM_MEMBER, async (_, id: string) => {
+      if (!this.pg) return false;
+      return this.pg.removeTeamMember(id);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.GET_TEAM_ENTRIES, async (_, date: string) => {
+      return this.pg?.getTeamEntriesForDate(date) ?? [];
+    });
+
+    ipcMain.handle(IPC_CHANNELS.ADJUST_TIME_ENTRY, async (_, data) => {
+      if (!this.pg) throw new Error('PostgreSQL not connected');
+      await this.pg.adjustTimeEntry(data);
+      return true;
+    });
+
+    ipcMain.handle(IPC_CHANNELS.GET_AUDIT_LOG, async (_, date: string) => {
+      return this.pg?.getAuditLogForDate(date) ?? [];
+    });
+
+    ipcMain.handle(IPC_CHANNELS.SET_MANAGER_PIN, async (_, pin: string) => {
+      if (!this.pg) throw new Error('PostgreSQL not connected');
+      await this.pg.setManagerPin(pin);
+      return true;
+    });
+
+    ipcMain.handle(IPC_CHANNELS.VERIFY_MANAGER_PIN, async (_, pin: string) => {
+      return this.pg?.verifyManagerPin(pin) ?? false;
+    });
+
+    ipcMain.handle(IPC_CHANNELS.HAS_MANAGER_PIN, async () => {
+      return this.pg?.hasManagerPin() ?? false;
+    });
+
+    ipcMain.handle(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, async (_, userId: string, userName: string) => {
+      if (!this.mainWindow) return null;
+      const savePath = path.join(app.getPath('documents'), `timetrack-report-${userName.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.pdf`);
+      const pdfData = await this.mainWindow.webContents.printToPDF({
+        printBackground: true,
+        pageSize: 'A4',
+      });
+      fs.writeFileSync(savePath, pdfData);
+      shell.openPath(savePath);
+      return savePath;
     });
   }
 }

@@ -91,6 +91,56 @@ export interface DailySummary {
   pauseTime: number; // seconds
 }
 
+// ==================== TEAM / MANAGEMENT TYPES ====================
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  goal_hours: number;
+  created_at: string;
+}
+
+export interface TeamTimeEntry {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_color: string;
+  project_id: string | null;
+  project_name: string | null;
+  app_name: string;
+  process_name: string;
+  start_time: string;
+  end_time: string | null;
+  duration: number;
+  status: string;
+  is_manually_adjusted: boolean;
+}
+
+export interface TeamAuditLog {
+  id: string;
+  manager_name: string;
+  target_user_name: string;
+  project_name: string;
+  old_start_time: string | null;
+  old_end_time: string | null;
+  old_project: string | null;
+  new_start_time: string | null;
+  new_end_time: string | null;
+  new_project: string | null;
+  motive: string;
+  created_at: string;
+}
+
+export interface LocalUserConfig {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  goalHours: number;
+}
+
 // IPC Channel names for communication between main and renderer
 export const IPC_CHANNELS = {
   // Process detection
@@ -142,6 +192,23 @@ export const IPC_CHANNELS = {
   WINDOW_CLOSE: 'window-close',
   RENDERER_LOG: 'renderer-log',
   SHOW_POPUP: 'show-popup',
+
+  // Team management (PostgreSQL)
+  GET_LOCAL_USER: 'get-local-user',
+  SAVE_LOCAL_USER: 'save-local-user',
+  GET_TEAM_MEMBERS: 'get-team-members',
+  ADD_TEAM_MEMBER: 'add-team-member',
+  UPDATE_TEAM_MEMBER: 'update-team-member',
+  REMOVE_TEAM_MEMBER: 'remove-team-member',
+  GET_TEAM_ENTRIES: 'get-team-entries',
+  ADJUST_TIME_ENTRY: 'adjust-time-entry',
+  GET_AUDIT_LOG: 'get-audit-log',
+  SET_MANAGER_PIN: 'set-manager-pin',
+  VERIFY_MANAGER_PIN: 'verify-manager-pin',
+  HAS_MANAGER_PIN: 'has-manager-pin',
+  EXPORT_WEEKLY_REPORT: 'export-weekly-report',
+  GET_POSTGRES_STATUS: 'get-postgres-status',
+  GET_USER_COLORS: 'get-user-colors',
 } as const;
 
 export interface ActiveWindow {

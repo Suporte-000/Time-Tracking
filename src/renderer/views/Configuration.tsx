@@ -79,7 +79,17 @@ const Configuration: React.FC = () => {
   const [newAppName, setNewAppName] = useState('');
   const [newAppProcess, setNewAppProcess] = useState('');
 
-  useEffect(() => { loadData(); }, []);
+  // Manager PIN
+  const [pin, setPin] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
+  const [pinMsg, setPinMsg] = useState('');
+  const [pinHasSet, setPinHasSet] = useState(false);
+  const [pgConnected, setPgConnected] = useState(false);
+
+  useEffect(() => {
+    loadData();
+    window.electron.getPostgresStatus?.().then(v => { setPgConnected(v); if (v) window.electron.hasManagerPin?.().then(setPinHasSet); });
+  }, []);
 
   const loadData = async () => {
     if (window.electron) {
@@ -215,6 +225,53 @@ const Configuration: React.FC = () => {
           )}
 
         </div>
+
+        {/* Manager PIN */}
+        <div style={{ marginTop: '24px', background: '#161C26', border: '1px solid #1E2530', borderRadius: '12px', overflow: 'hidden' }}>
+          <div className="card-header">🔒 Manager PIN {pinHasSet && <span style={{ fontSize: '10px', color: '#1FB8A0', fontWeight: 600 }}>SET</span>}</div>
+          <div className="card-body">
+            {!pgConnected ? (
+              <div style={{ fontSize: '12px', color: '#F6AD55' }}>⚠ PostgreSQL not connected — PIN requires a database connection.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '320px' }}>
+                <div style={{ fontSize: '12px', color: '#718096' }}>
+                  {pinHasSet ? 'Update the administrator PIN for Gestão access.' : 'Set a PIN to protect the Gestão da Equipe page.'}
+                </div>
+                <input
+                  type="password"
+                  value={pin}
+                  onChange={e => { setPin(e.target.value); setPinMsg(''); }}
+                  placeholder="New PIN"
+                  style={{ padding: '8px 10px', background: '#0A0E14', border: '1px solid #1E2530', borderRadius: '7px', color: '#E2E8F0', fontSize: '13px', outline: 'none' }}
+                />
+                <input
+                  type="password"
+                  value={pinConfirm}
+                  onChange={e => { setPinConfirm(e.target.value); setPinMsg(''); }}
+                  placeholder="Confirm PIN"
+                  style={{ padding: '8px 10px', background: '#0A0E14', border: '1px solid #1E2530', borderRadius: '7px', color: '#E2E8F0', fontSize: '13px', outline: 'none' }}
+                />
+                {pinMsg && <div style={{ fontSize: '12px', color: pinMsg.startsWith('✓') ? '#1FB8A0' : '#FC8181' }}>{pinMsg}</div>}
+                <button
+                  className="btn btn-primary"
+                  style={{ alignSelf: 'flex-start' }}
+                  onClick={async () => {
+                    if (!pin) { setPinMsg('Enter a PIN.'); return; }
+                    if (pin !== pinConfirm) { setPinMsg('PINs do not match.'); return; }
+                    if (pin.length < 4) { setPinMsg('PIN must be at least 4 characters.'); return; }
+                    await window.electron.setManagerPin!(pin);
+                    setPinHasSet(true);
+                    setPin(''); setPinConfirm('');
+                    setPinMsg('✓ PIN saved successfully.');
+                  }}
+                >
+                  {pinHasSet ? 'Update PIN' : 'Set PIN'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
   );

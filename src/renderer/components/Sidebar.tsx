@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useI18n } from '../i18nContext';
 import { LANGUAGE_LABELS, type Language } from '../../shared/i18n';
+import type { LocalUserConfig } from '../../shared/types';
 import './Sidebar.css';
 
 type View = 'dashboard' | 'popup' | 'history' | 'config' | 'management';
@@ -12,6 +13,11 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
   const { lang, setLang, t } = useI18n();
+  const [localUser, setLocalUser] = useState<LocalUserConfig | null>(null);
+
+  useEffect(() => {
+    window.electron.getLocalUser?.().then(u => setLocalUser(u)).catch(() => {});
+  }, []);
 
   return (
     <div className="sidebar">
@@ -82,9 +88,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
 
       <div className="sidebar-bottom">
         <div className="user-row">
-          <div className="user-avatar">RC</div>
+          <div className="user-avatar" style={localUser ? { background: localUser.color } : undefined}>
+            {localUser ? localUser.initials : '?'}
+          </div>
           <div className="user-info">
-            <div className="user-name">Rodrigo C.</div>
+            <div className="user-name">{localUser?.name ?? '...'}</div>
             <div className="user-role">{t('sidebar.developer')}</div>
           </div>
         </div>
