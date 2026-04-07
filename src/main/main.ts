@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification, shell, screen } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { WindowMonitor } from './services/windowMonitor';
@@ -409,9 +409,18 @@ class TimeTrackApp {
       return;
     }
 
+    const { workArea } = screen.getPrimaryDisplay();
+    const popupWidth = 400;
+    const popupHeight = 520;
+    const margin = 12;
+    const x = workArea.x + workArea.width - popupWidth - margin;
+    const y = workArea.y + workArea.height - popupHeight - margin;
+
     this.popupWindow = new BrowserWindow({
-      width: 400,
-      height: 520,
+      width: popupWidth,
+      height: popupHeight,
+      x,
+      y,
       resizable: false,
       frame: false,
       transparent: false,
