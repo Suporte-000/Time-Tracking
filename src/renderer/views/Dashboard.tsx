@@ -30,6 +30,7 @@ const Dashboard: React.FC = () => {
   const [, setTick] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
+  const projectsRef = useRef<Project[]>([]);
 
   const [showPopup, setShowPopup] = useState(false);
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -58,7 +59,7 @@ const Dashboard: React.FC = () => {
   const getElapsed = (entry: TimeEntry): number => Math.floor((Date.now() - new Date(entry.startTime).getTime()) / 1000);
 
   const loadProjects = async () => {
-    try { if (window.electron) { setProjects(await window.electron.getProjects()); } }
+    try { if (window.electron) { const p = await window.electron.getProjects(); setProjects(p); projectsRef.current = p; } }
     catch (error) { console.error('Error loading projects:', error); }
     finally { setLoading(false); }
   };
@@ -97,7 +98,7 @@ const Dashboard: React.FC = () => {
   };
 
   const triggerPopup = () => {
-    if (projects.length === 0) return;
+    if (projectsRef.current.length === 0) return;
     // Bring main window to front, then show popup overlay
     window.electron.showMainWindow?.();
     setShowPopup(true);
