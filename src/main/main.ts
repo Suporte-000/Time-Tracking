@@ -8,15 +8,33 @@ import { PostgresService } from './services/postgresService';
 import { SyncService } from './services/syncService';
 import { IPC_CHANNELS } from '../shared/types';
 
-// Load .env
-const envPath = path.join(app.getAppPath(), '.env');
-if (fs.existsSync(envPath)) {
-  const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
-  for (const line of lines) {
-    const [key, ...rest] = line.split('=');
-    if (key && rest.length) process.env[key.trim()] = rest.join('=').trim();
+// Load .env — try multiple locations
+function loadEnv() {
+  const candidates = [
+    path.join(process.cwd(), '.env'),
+    path.join(__dirname, '../../.env'),
+    path.join(__dirname, '../../../.env'),
+    path.join(app.getAppPath(), '.env'),
+  ];
+  for (const envPath of candidates) {
+    if (fs.existsSync(envPath)) {
+      console.log('[ENV] Loading from:', envPath);
+      const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx < 0) continue;
+        const key = trimmed.substring(0, eqIdx).trim();
+        const val = trimmed.substring(eqIdx + 1).trim();
+        if (key && !process.env[key]) process.env[key] = val;
+      }
+      break;
+    }
   }
+  console.log('[ENV] DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
 }
+loadEnv();
 
 // ── Log file setup ──────────────────────────────────────────────────────────
 const LOG_PATH = path.join(app.getPath('userData'), 'timetrack.log');
@@ -55,10 +73,16 @@ class TimeTrackApp {
     // Initialize database
     this.db = new DatabaseService();
 
+    // Re-load .env now that app is ready (getAppPath is now valid)
+    loadEnv();
+
     // Initialize PostgreSQL + sync
     this.pg = new PostgresService();
     this.sync = new SyncService(this.pg, this.db);
-    this.pg.connect().catch(err => console.warn('[Postgres] Could not connect:', err.message));
+    this.pg.connect().then(ok => {
+      if (ok) console.log('[Postgres] Connected to Railway');
+      else console.warn('[Postgres] Failed to connect — check DATABASE_URL in .env');
+    }).catch(err => console.warn('[Postgres] Could not connect:', err.message));
 
     // Create main window
     // Remove default menu bar (File/Edit/View/Window/Help)
