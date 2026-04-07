@@ -304,8 +304,8 @@ const Dashboard: React.FC = () => {
                 <div style={{ fontSize: '32px', width: '48px',textAlign: 'center', flexShrink: 0 }}>💻</div>
                 <div className="active-info" style={{ flex: 1 }}>
                   <div className="active-label" style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '1.2px', color: '#1FB8A0', marginBottom: '4px' }}>{t('timer.appInFocus')}</div>
-                  <div className="active-app" style={{ fontSize: '20px', fontWeight: 700, color: '#E2E8F0', marginBottom: '4px' }}>{entry.appName || 'Unknown'}</div>
-                  <div className="active-project" style={{ fontSize: '13px', color: '#FFFFFF' }}>→ {t('timer.project')}: {projectLabel}</div>
+                  <div className="active-app" style={{ fontSize: '20px', fontWeight: 700, color: '#E2E8F0', marginBottom: '4px' }}>{projectLabel}</div>
+                  <div className="active-project" style={{ fontSize: '13px', color: '#FFFFFF' }}>→ {entry.appName || 'Unknown'}</div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontSize: '32px', fontWeight: 700, color: '#1FB8A0', fontVariantNumeric: 'tabular-nums', letterSpacing: '1px' }}>{formatTimerDisplay(elapsed)}</div>
