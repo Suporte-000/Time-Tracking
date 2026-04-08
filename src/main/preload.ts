@@ -172,6 +172,16 @@ const api = {
 
   exportWeeklyReport: (userId: string, userName: string): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, userId, userName),
+
+  // Project programs
+  getProjectPrograms: (projectId?: string): Promise<any[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_PROJECT_PROGRAMS, projectId),
+
+  addProjectProgram: (projectId: string, processName: string, displayName: string): Promise<any> =>
+    ipcRenderer.invoke(IPC_CHANNELS.ADD_PROJECT_PROGRAM, projectId, processName, displayName),
+
+  removeProjectProgram: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.REMOVE_PROJECT_PROGRAM, id),
 };
 
 // Expose the API to the renderer process

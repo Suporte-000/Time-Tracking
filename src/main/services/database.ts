@@ -112,12 +112,26 @@ export class DatabaseService {
       )
     `);
 
+    // Project programs table (admin links process names to projects)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS project_programs (
+        id TEXT PRIMARY KEY,
+        projectId TEXT NOT NULL,
+        processName TEXT NOT NULL,
+        displayName TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (projectId) REFERENCES projects(id),
+        UNIQUE(projectId, processName)
+      )
+    `);
+
     // Create indexes for performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_time_entries_userId ON time_entries(userId);
       CREATE INDEX IF NOT EXISTS idx_time_entries_projectId ON time_entries(projectId);
       CREATE INDEX IF NOT EXISTS idx_time_entries_startTime ON time_entries(startTime);
       CREATE INDEX IF NOT EXISTS idx_time_entries_processName ON time_entries(processName);
+      CREATE INDEX IF NOT EXISTS idx_project_programs_processName ON project_programs(processName);
     `);
 
     console.log('Database tables initialized');
@@ -465,6 +479,38 @@ export class DatabaseService {
     if (!row) return null;
 
     return row as AppSuggestion;
+  }
+
+  // ==================== PROJECT PROGRAMS ====================
+
+  getProjectPrograms(projectId?: string): any[] {
+    if (projectId) {
+      return this.db.prepare('SELECT * FROM project_programs WHERE projectId = ? ORDER BY displayName').all(projectId) as any[];
+    }
+    return this.db.prepare('SELECT pp.*, p.name as projectName, p.color as projectColor FROM project_programs pp JOIN projects p ON pp.projectId = p.id ORDER BY p.name, pp.displayName').all() as any[];
+  }
+
+  getProjectByProcess(processName: string): { projectId: string; projectName: string; displayName: string } | null {
+    const row = this.db.prepare(`
+      SELECT pp.projectId, p.name as projectName, pp.displayName
+      FROM project_programs pp
+      JOIN projects p ON pp.projectId = p.id
+      WHERE pp.processName = ? COLLATE NOCASE AND p.isActive = 1
+      LIMIT 1
+    `).get(processName) as any;
+    return row || null;
+  }
+
+  addProjectProgram(projectId: string, processName: string, displayName: string): any {
+    const id = this.generateId();
+    const createdAt = new Date().toISOString();
+    this.db.prepare('INSERT OR IGNORE INTO project_programs (id, projectId, processName, displayName, createdAt) VALUES (?, ?, ?, ?, ?)')
+      .run(id, projectId, processName, displayName, createdAt);
+    return { id, projectId, processName, displayName, createdAt };
+  }
+
+  removeProjectProgram(id: string): boolean {
+    return this.db.prepare('DELETE FROM project_programs WHERE id = ?').run(id).changes > 0;
   }
 
   // ==================== HELPERS ====================

@@ -15,11 +15,6 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // New project modal state
-  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectSubproject, setNewProjectSubproject] = useState('');
-  const [newProjectApp, setNewProjectApp] = useState('');
-  const [newProjectCustomApp, setNewProjectCustomApp] = useState('');
 
 
 
@@ -29,7 +24,6 @@ const Dashboard: React.FC = () => {
   const [activeEntries, setActiveEntries] = useState<TimeEntry[]>([]);
   const [, setTick] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const importFileRef = useRef<HTMLInputElement>(null);
   const projectsRef = useRef<Project[]>([]);
 
   const [showPopup, setShowPopup] = useState(false);
@@ -137,41 +131,6 @@ const Dashboard: React.FC = () => {
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `timetrack_${today}.csv`; link.click();
   };
 
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    let count = 0;
-    for (const line of lines) {
-      const parts = line.split('\t');
-      const name = parts[0]?.trim();
-      const subproject = parts[1]?.trim() || undefined;
-      if (!name) continue;
-      const colorIndex = (projects.length + count) % PROJECT_COLORS.length;
-      await window.electron.createProject({ name, subproject, color: PROJECT_COLORS[colorIndex], isActive: true });
-      count++;
-    }
-    await loadProjects();
-    e.target.value = '';
-    alert(`Imported ${count} projects.`);
-  };
-
-  const handleNewProject = async () => {
-    if (!newProjectName.trim()) return;
-    try {
-      const colorIndex = projects.length % PROJECT_COLORS.length;
-      await window.electron.createProject({
-        name: newProjectName.trim(),
-        subproject: newProjectSubproject.trim() || undefined,
-        color: PROJECT_COLORS[colorIndex],
-        isActive: true,
-      });
-      setNewProjectName(''); setNewProjectSubproject('');
-      setShowNewProjectModal(false); await loadProjects();
-    } catch (error) { console.error('Error creating project:', error); alert(t('project.createError')); }
-  };
-
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60);
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
@@ -195,8 +154,6 @@ const Dashboard: React.FC = () => {
     return sum + e.duration;
   }, 0);
 
-  const canCreateProject = newProjectName.trim();
-
   if (loading) return <div className="loading">{t('dashboard.loading')}</div>;
 
   return (
@@ -211,49 +168,9 @@ const Dashboard: React.FC = () => {
             style={{ opacity: timeEntries.length === 0 ? 0.5 : 1, cursor: timeEntries.length === 0 ? 'not-allowed' : 'pointer' }}>
             ⬇ {t('dashboard.exportCsv')}
           </button>
-          <button className="btn" onClick={() => importFileRef.current?.click()}>
-            ⬆ Import TXT/CSV
-          </button>
-          <input ref={importFileRef} type="file" accept=".txt,.csv" style={{ display: 'none' }} onChange={handleImportFile} />
-          <button className="btn btn-primary" onClick={() => setShowNewProjectModal(true)}>
-            {t('dashboard.newProject')}
-          </button>
         </div>
       </div>
 
-      {/* New Project Modal — with app selector */}
-      {showNewProjectModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#161C26', borderRadius: '12px', padding: '24px', width: '90%', maxWidth: '500px', border: '1px solid #1A1F2B' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#E2E8F0' }}>{t('project.new')}</h3>
-
-            {/* Project name */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#A0AEC0', fontSize: '14px' }}>{t('project.name')}</label>
-              <input type="text" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder={t('project.namePlaceholder')}
-                style={{ width: '100%', padding: '10px', background: '#0A0E14', border: '1px solid #1A1F2B', borderRadius: '6px', color: '#E2E8F0', fontSize: '14px' }} autoFocus />
-            </div>
-
-            {/* Subproject */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#A0AEC0', fontSize: '14px' }}>Subproject (optional)</label>
-              <input type="text" value={newProjectSubproject} onChange={(e) => setNewProjectSubproject(e.target.value)} placeholder="e.g. Electrical, Plumbing..."
-                style={{ width: '100%', padding: '10px', background: '#0A0E14', border: '1px solid #1A1F2B', borderRadius: '6px', color: '#E2E8F0', fontSize: '14px' }} />
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button onClick={() => { setShowNewProjectModal(false); setNewProjectName(''); setNewProjectSubproject(''); setNewProjectApp(''); setNewProjectCustomApp(''); }}
-                style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #1E2530', borderRadius: '6px', color: '#A0AEC0', cursor: 'pointer', fontSize: '14px' }}>
-                {t('common.cancel')}
-              </button>
-              <button onClick={handleNewProject} disabled={!canCreateProject}
-                style={{ padding: '10px 20px', background: canCreateProject ? '#1FB8A0' : '#1E2530', border: 'none', borderRadius: '6px', color: canCreateProject ? '#FFFFFF' : '#4A5568', cursor: canCreateProject ? 'pointer' : 'not-allowed', fontSize: '14px', fontWeight: '600' }}>
-                {t('project.create')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Start Timer Modal — just pick a project (app is already linked) */}
       {showStartModal && (

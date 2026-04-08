@@ -179,9 +179,6 @@ export const IPC_CHANNELS = {
   SYNC_TO_SERVER: 'sync-to-server',
   SYNC_STATUS: 'sync-status',
 
-  // Audit log
-  GET_AUDIT_LOG: 'get-audit-log',
-
   // System
   MINIMIZE_TO_TRAY: 'minimize-to-tray',
   SHOW_NOTIFICATION: 'show-notification',
@@ -209,6 +206,11 @@ export const IPC_CHANNELS = {
   EXPORT_WEEKLY_REPORT: 'export-weekly-report',
   GET_POSTGRES_STATUS: 'get-postgres-status',
   GET_USER_COLORS: 'get-user-colors',
+
+  // Project programs (admin-registered)
+  GET_PROJECT_PROGRAMS: 'get-project-programs',
+  ADD_PROJECT_PROGRAM: 'add-project-program',
+  REMOVE_PROJECT_PROGRAM: 'remove-project-program',
 } as const;
 
 export interface ActiveWindow {

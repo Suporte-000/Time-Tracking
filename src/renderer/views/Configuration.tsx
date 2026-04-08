@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { MonitoredApp, SystemConfig } from '../../shared/types';
+import type { SystemConfig } from '../../shared/types';
 import { useI18n } from '../i18nContext';
 
 const APP_ICONS: Record<string, string> = {
@@ -73,39 +73,15 @@ const EditableBadge: React.FC<{
 /* ── Main component ── */
 const Configuration: React.FC = () => {
   const { t } = useI18n();
-  const [apps, setApps] = useState<MonitoredApp[]>([]);
   const [config, setConfig] = useState<SystemConfig | null>(null);
-  const [showAddApp, setShowAddApp] = useState(false);
-  const [newAppName, setNewAppName] = useState('');
-  const [newAppProcess, setNewAppProcess] = useState('');
 
-  // Manager PIN
-  const [pin, setPin] = useState('');
-  const [pinConfirm, setPinConfirm] = useState('');
-  const [pinMsg, setPinMsg] = useState('');
-  const [pinHasSet, setPinHasSet] = useState(false);
-  const [pgConnected, setPgConnected] = useState(false);
-
-  useEffect(() => {
-    loadData();
-    window.electron.getPostgresStatus?.().then(v => { setPgConnected(v); if (v) window.electron.hasManagerPin?.().then(setPinHasSet); });
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     if (window.electron) {
-      const [appsData, configData] = await Promise.all([
-        window.electron.getMonitoredApps(),
-        window.electron.getConfig(),
-      ]);
-      setApps(appsData);
+      const configData = await window.electron.getConfig();
       setConfig(configData);
     }
-  };
-
-  const handleToggleApp = async (app: MonitoredApp) => {
-    const updated = { ...app, isEnabled: !app.isEnabled };
-    setApps(prev => prev.map(a => a.id === app.id ? updated : a));
-    await window.electron.updateMonitoredApp(updated);
   };
 
   const handleConfigToggle = async (key: 'startWithWindows' | 'minimizeToTray' | 'showNotifications') => {
@@ -122,22 +98,6 @@ const Configuration: React.FC = () => {
     await window.electron.updateConfig(updated);
   };
 
-  const handleAddApp = async () => {
-    if (!newAppName.trim() || !newAppProcess.trim()) return;
-    const newApp: MonitoredApp = {
-      id: `app-${Date.now()}`,
-      name: newAppName.trim(),
-      processName: newAppProcess.trim(),
-      icon: getIcon(newAppName.trim()),
-      isEnabled: true,
-      createdAt: new Date().toISOString(),
-    };
-    await window.electron.updateMonitoredApp(newApp);
-    setApps(prev => [...prev, newApp]);
-    setNewAppName(''); setNewAppProcess('');
-    setShowAddApp(false);
-  };
-
   return (
     <div style={{ padding: '24px 28px', height: '100%', overflowY: 'auto' }}>
       {/* Header */}
@@ -146,60 +106,8 @@ const Configuration: React.FC = () => {
         <div style={{ fontSize: '13px', color: '#718096', marginTop: '4px' }}>{t('config.subtitle')}</div>
       </div>
 
-      {/* Add App Modal */}
-      {showAddApp && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#161C26', borderRadius: '14px', padding: '24px', width: '360px', border: '1px solid #1E2A3A' }}>
-            <h3 style={{ margin: '0 0 18px', color: '#E2E8F0', fontSize: '16px' }}>Add Monitored App</h3>
-            <label style={{ display: 'block', fontSize: '12px', color: '#718096', marginBottom: '6px' }}>App name</label>
-            <input value={newAppName} onChange={e => setNewAppName(e.target.value)} placeholder="e.g. Slack"
-              style={{ width: '100%', padding: '9px 12px', background: '#0D1117', border: '1px solid #1E2A3A', borderRadius: '8px', color: '#E2E8F0', fontSize: '14px', outline: 'none', marginBottom: '14px' }} autoFocus />
-            <label style={{ display: 'block', fontSize: '12px', color: '#718096', marginBottom: '6px' }}>Process name</label>
-            <input value={newAppProcess} onChange={e => setNewAppProcess(e.target.value)} placeholder="e.g. slack"
-              style={{ width: '100%', padding: '9px 12px', background: '#0D1117', border: '1px solid #1E2A3A', borderRadius: '8px', color: '#E2E8F0', fontSize: '14px', outline: 'none', marginBottom: '20px' }}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddApp(); }} />
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowAddApp(false)}
-                style={{ padding: '9px 18px', background: 'transparent', border: '1px solid #1E2A3A', borderRadius: '8px', color: '#A0AEC0', cursor: 'pointer', fontSize: '13px' }}>
-                {t('common.cancel')}
-              </button>
-              <button onClick={handleAddApp} disabled={!newAppName.trim() || !newAppProcess.trim()}
-                style={{ padding: '9px 18px', background: newAppName.trim() && newAppProcess.trim() ? '#1FB8A0' : '#1E2A3A', border: 'none', borderRadius: '8px', color: newAppName.trim() && newAppProcess.trim() ? '#fff' : '#4A5568', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
-
-        {/* Left — Monitored Apps */}
-        <div style={{ background: '#161C26', borderRadius: '14px', border: '1px solid #1E2A3A', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid #1E2A3A', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '1px', color: '#718096' }}>{t('config.monitoredApps')}</span>
-            <button onClick={() => setShowAddApp(true)}
-              style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#1FB8A0', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>+</button>
-          </div>
-          <div>
-            {apps.map(app => (
-              <div key={app.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 20px', borderBottom: '1px solid #111722', transition: 'background 0.1s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#111722'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#0D1117', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                  {getIcon(app.name)}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#E2E8F0' }}>{app.name}</div>
-                  <div style={{ fontSize: '12px', color: '#4A5568', marginTop: '1px' }}>{app.processName}.exe</div>
-                </div>
-                <Toggle value={app.isEnabled} onChange={() => handleToggleApp(app)} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
 
@@ -224,52 +132,6 @@ const Configuration: React.FC = () => {
             </div>
           )}
 
-        </div>
-
-        {/* Manager PIN */}
-        <div style={{ marginTop: '24px', background: '#161C26', border: '1px solid #1E2530', borderRadius: '12px', overflow: 'hidden' }}>
-          <div className="card-header">🔒 Manager PIN {pinHasSet && <span style={{ fontSize: '10px', color: '#1FB8A0', fontWeight: 600 }}>SET</span>}</div>
-          <div className="card-body">
-            {!pgConnected ? (
-              <div style={{ fontSize: '12px', color: '#F6AD55' }}>⚠ PostgreSQL not connected — PIN requires a database connection.</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '320px' }}>
-                <div style={{ fontSize: '12px', color: '#718096' }}>
-                  {pinHasSet ? 'Update the administrator PIN for Gestão access.' : 'Set a PIN to protect the Gestão da Equipe page.'}
-                </div>
-                <input
-                  type="password"
-                  value={pin}
-                  onChange={e => { setPin(e.target.value); setPinMsg(''); }}
-                  placeholder="New PIN"
-                  style={{ padding: '8px 10px', background: '#0A0E14', border: '1px solid #1E2530', borderRadius: '7px', color: '#E2E8F0', fontSize: '13px', outline: 'none' }}
-                />
-                <input
-                  type="password"
-                  value={pinConfirm}
-                  onChange={e => { setPinConfirm(e.target.value); setPinMsg(''); }}
-                  placeholder="Confirm PIN"
-                  style={{ padding: '8px 10px', background: '#0A0E14', border: '1px solid #1E2530', borderRadius: '7px', color: '#E2E8F0', fontSize: '13px', outline: 'none' }}
-                />
-                {pinMsg && <div style={{ fontSize: '12px', color: pinMsg.startsWith('✓') ? '#1FB8A0' : '#FC8181' }}>{pinMsg}</div>}
-                <button
-                  className="btn btn-primary"
-                  style={{ alignSelf: 'flex-start' }}
-                  onClick={async () => {
-                    if (!pin) { setPinMsg('Enter a PIN.'); return; }
-                    if (pin !== pinConfirm) { setPinMsg('PINs do not match.'); return; }
-                    if (pin.length < 4) { setPinMsg('PIN must be at least 4 characters.'); return; }
-                    await window.electron.setManagerPin!(pin);
-                    setPinHasSet(true);
-                    setPin(''); setPinConfirm('');
-                    setPinMsg('✓ PIN saved successfully.');
-                  }}
-                >
-                  {pinHasSet ? 'Update PIN' : 'Set PIN'}
-                </button>
-              </div>
-            )}
-          </div>
         </div>
 
       </div>

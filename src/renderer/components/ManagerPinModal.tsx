@@ -14,12 +14,12 @@ const ManagerPinModal: React.FC<Props> = ({ onSuccess, onCancel }) => {
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const handleVerify = async () => {
-    if (!pin) { setError('Enter PIN.'); return; }
+    if (!pin) { setError('Enter password.'); return; }
     setLoading(true);
     try {
       const ok = await window.electron.verifyManagerPin(pin);
       if (ok) { onSuccess(); }
-      else { setError('Incorrect PIN.'); setPin(''); }
+      else { setError('Incorrect password.'); setPin(''); }
     } catch { setError('Connection error.'); }
     finally { setLoading(false); }
   };
@@ -38,7 +38,7 @@ const ManagerPinModal: React.FC<Props> = ({ onSuccess, onCancel }) => {
           Manager Access
         </div>
         <div style={{ fontSize: '12px', color: '#718096', marginBottom: '24px' }}>
-          Enter the administrator PIN to continue.
+          Enter the administrator password to continue.
         </div>
 
         <input
@@ -47,7 +47,7 @@ const ManagerPinModal: React.FC<Props> = ({ onSuccess, onCancel }) => {
           value={pin}
           onChange={e => { setPin(e.target.value); setError(''); }}
           onKeyDown={e => e.key === 'Enter' && handleVerify()}
-          placeholder="PIN"
+          placeholder="Password"
           maxLength={20}
           style={{
             width: '100%', padding: '10px', textAlign: 'center', letterSpacing: '4px',

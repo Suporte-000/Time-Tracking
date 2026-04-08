@@ -104,6 +104,16 @@ class TimeTrackApp {
       else console.warn('[Postgres] Failed to connect — check DATABASE_URL in .env');
     }).catch(err => console.warn('[Postgres] Could not connect:', err.message));
 
+    // Apply start-with-Windows from saved config
+    const savedConfig = this.db?.getConfig();
+    if (savedConfig) {
+      app.setLoginItemSettings({
+        openAtLogin: savedConfig.startWithWindows,
+        openAsHidden: true,
+        name: 'TimeTrack',
+      });
+    }
+
     // Create main window
     // Remove default menu bar (File/Edit/View/Window/Help)
     Menu.setApplicationMenu(null);
@@ -161,6 +171,12 @@ class TimeTrackApp {
     });
 
     this.mainWindow.once('ready-to-show', () => {
+      // If launched automatically at login, stay hidden in tray
+      const launchedAtLogin = app.getLoginItemSettings().wasOpenedAtLogin;
+      if (launchedAtLogin) {
+        console.log('[App] Launched at login — starting minimized to tray');
+        return; // don't show window
+      }
       this.mainWindow?.show();
       if (this.mainWindow?.isMaximized()) {
         this.mainWindow.unmaximize();
@@ -371,12 +387,16 @@ class TimeTrackApp {
       for (const entry of active) {
         const key = entry.processName.toLowerCase();
         if (!running.has(key)) {
-          console.log(`Process "${entry.processName}" exited — stopping tracking entry ${entry.id}`);
-          this.db?.stopTracking(entry.id);
+          console.log(`Process "${entry.processName}" exited — auto-stopping entry ${entry.id}`);
+          this.db?.stopTracking(entry.id, 'auto');
+          this.sync?.syncEntry(entry.id).catch(() => {});
           // Notify renderer to refresh
           if (this.mainWindow && !this.mainWindow.isDestroyed()) {
             this.mainWindow.webContents.send('tracking-auto-stopped', entry.id);
           }
+          // Clear any pending popup timer for this process
+          const timer = this.popupTimers.get(entry.processName);
+          if (timer) { clearTimeout(timer); this.popupTimers.delete(entry.processName); }
         }
       }
     } catch (err) {
@@ -399,37 +419,36 @@ class TimeTrackApp {
       this.currentActiveProcess = processName;
     }
 
-    // Check if this app is monitored
-    const monitoredApp = this.db?.getMonitoredAppByProcess(processName);
+    // Check if this process is registered by admin in project_programs
+    const linked = this.db?.getProjectByProcess(processName);
+    if (!linked) return;
 
-    if (monitoredApp && monitoredApp.isEnabled) {
-      // Get config to check popup delay
-      const config = this.db?.getConfig();
-      const popupDelay = (config?.popupDelay || 2) * 60 * 1000; // Convert to milliseconds
+    // Get config to check popup delay
+    const config = this.db?.getConfig();
+    const popupDelay = (config?.popupDelay || 2) * 60 * 1000;
 
-      // Check if already tracking this app
-      const activeEntries = this.db?.getTimeEntries();
-      const alreadyTracking = activeEntries?.some(
-        entry => entry.processName === processName && entry.endTime === null
-      );
+    // Check if already tracking this app
+    const activeEntries = this.db?.getTimeEntries();
+    const alreadyTracking = activeEntries?.some(
+      entry => entry.processName === processName && entry.endTime === null
+    );
 
-      if (alreadyTracking) {
-        console.log(`Already tracking ${monitoredApp.name}`);
-        return;
-      }
+    if (alreadyTracking) {
+      console.log(`Already tracking ${linked.projectName}`);
+      return;
+    }
 
-      // Set timer to show popup after continuous use
-      if (!this.popupTimers.has(processName)) {
-        console.log(`Starting timer for ${monitoredApp.name} (${popupDelay / 1000}s)`);
+    // Set timer to show popup after continuous use
+    if (!this.popupTimers.has(processName)) {
+      console.log(`Starting timer for ${linked.projectName} / ${processName} (${popupDelay / 1000}s)`);
 
-        const timer = setTimeout(() => {
-          console.log(`Timer expired, showing popup for ${monitoredApp.name}`);
-          this.createPopupWindow(monitoredApp.name, processName);
-          this.popupTimers.delete(processName);
-        }, popupDelay);
+      const timer = setTimeout(() => {
+        console.log(`Timer expired, showing popup for ${linked.projectName}`);
+        this.createPopupWindow(linked.displayName, processName);
+        this.popupTimers.delete(processName);
+      }, popupDelay);
 
-        this.popupTimers.set(processName, timer);
-      }
+      this.popupTimers.set(processName, timer);
     }
   }
 
@@ -439,10 +458,10 @@ class TimeTrackApp {
       return;
     }
 
-    // Don't show popup if there are no projects configured
-    const projects = this.db?.getProjects?.() ?? [];
-    if (projects.length === 0) {
-      console.log('No projects configured, skipping popup');
+    // Don't show popup if process has no linked project
+    const linked = this.db?.getProjectByProcess(processName);
+    if (!linked) {
+      console.log('No project linked to process, skipping popup');
       return;
     }
 
@@ -570,7 +589,17 @@ class TimeTrackApp {
     });
 
     ipcMain.handle(IPC_CHANNELS.UPDATE_CONFIG, (_, config) => {
-      return this.db?.updateConfig(config);
+      const result = this.db?.updateConfig(config);
+      // Apply start-with-Windows setting immediately
+      if (config.startWithWindows !== undefined) {
+        app.setLoginItemSettings({
+          openAtLogin: config.startWithWindows,
+          openAsHidden: true,
+          name: 'TimeTrack',
+        });
+        console.log(`[App] Start with Windows: ${config.startWithWindows}`);
+      }
+      return result;
     });
 
     // Time entries
@@ -689,6 +718,19 @@ class TimeTrackApp {
     });
 
     // ── Team / PostgreSQL handlers ────────────────────────────────────────────
+
+    // Project programs
+    ipcMain.handle(IPC_CHANNELS.GET_PROJECT_PROGRAMS, (_, projectId?: string) => {
+      return this.db?.getProjectPrograms(projectId) ?? [];
+    });
+
+    ipcMain.handle(IPC_CHANNELS.ADD_PROJECT_PROGRAM, (_, projectId: string, processName: string, displayName: string) => {
+      return this.db?.addProjectProgram(projectId, processName, displayName);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.REMOVE_PROJECT_PROGRAM, (_, id: string) => {
+      return this.db?.removeProjectProgram(id);
+    });
 
     ipcMain.handle(IPC_CHANNELS.GET_POSTGRES_STATUS, () => {
       return this.pg?.isConnected() ?? false;

@@ -68,7 +68,9 @@ export class PostgresService {
       connectionString
         ? {
             connectionString,
-            ssl: { rejectUnauthorized: false }, // Railway requires SSL
+            ssl: process.env.NODE_ENV === 'development'
+              ? { rejectUnauthorized: false }
+              : { rejectUnauthorized: false }, // Railway requires SSL
             connectionTimeoutMillis: 10000,
             idleTimeoutMillis: 30000,
             max: 10,
@@ -95,7 +97,9 @@ export class PostgresService {
       console.log('[Postgres] Connected successfully');
       return true;
     } catch (err: any) {
-      console.error('[Postgres] Connection failed:', err.message);
+      console.error('[Postgres] Connection failed:', err.message || String(err));
+      console.error('[Postgres] Error code:', err.code);
+      console.error('[Postgres] Error detail:', err.detail || err.stack || '(no detail)');
       this.connected = false;
       return false;
     }
@@ -168,7 +172,24 @@ export class PostgresService {
       );
 
       INSERT INTO manager_config (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+      CREATE TABLE IF NOT EXISTS project_programs (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        process_name TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(project_id, process_name)
+      );
     `);
+    // Set default PIN (12345678) if none set
+    const cfg = await this.pool!.query('SELECT pin_hash FROM manager_config WHERE id=1');
+    if (!cfg.rows[0]?.pin_hash) {
+      const hash = await bcrypt.hash('12345678', 10);
+      await this.pool!.query('UPDATE manager_config SET pin_hash=$1 WHERE id=1', [hash]);
+      console.log('[Postgres] Default manager password set (12345678)');
+    }
+
     console.log('[Postgres] Schema initialized');
   }
 
