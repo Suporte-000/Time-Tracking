@@ -554,17 +554,24 @@ class TimeTrackApp {
       return;
     }
 
-    // Don't show popup if process has no linked project
-    const linked = this.db?.getProjectByProcess(processName);
-    if (!linked) {
-      console.log('No project linked to process, skipping popup');
-      return;
-    }
-
     // Don't show popup if there are no projects
     const projects = this.db?.getProjects() || [];
     if (projects.length === 0) {
       console.log('No projects exist, skipping popup');
+      return;
+    }
+
+    // Don't show popup if there are no registered programs
+    const registeredPrograms = this.db?.getProjectPrograms() || [];
+    if (registeredPrograms.length === 0) {
+      console.log('No registered programs, skipping popup');
+      return;
+    }
+
+    // Don't show popup if this process has no linked project
+    const linked = this.db?.getProjectByProcess(processName);
+    if (!linked) {
+      console.log('No project linked to process, skipping popup');
       return;
     }
 
