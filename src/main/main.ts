@@ -10,7 +10,20 @@ import { IPC_CHANNELS } from '../shared/types';
 
 // Load .env — try multiple locations
 function loadEnv() {
+  // On first run of a packaged app, copy bundled .env to userData so user can edit it
+  const userDataEnv = path.join(app.getPath('userData'), '.env');
+  const bundledEnv = path.join(process.resourcesPath ?? '', '.env');
+  if (!fs.existsSync(userDataEnv) && fs.existsSync(bundledEnv)) {
+    try {
+      fs.copyFileSync(bundledEnv, userDataEnv);
+      console.log('[ENV] Copied bundled .env to userData:', userDataEnv);
+    } catch (e) {
+      console.warn('[ENV] Could not copy bundled .env:', e);
+    }
+  }
+
   const candidates = [
+    path.join(app.getPath('userData'), '.env'),   // user-editable copy (highest priority)
     path.join(process.cwd(), '.env'),
     path.join(__dirname, '.env'),
     path.join(__dirname, '../.env'),
@@ -18,11 +31,9 @@ function loadEnv() {
     path.join(__dirname, '../../../.env'),
     path.join(path.dirname(process.execPath), '.env'),
     path.join(app.getAppPath(), '.env'),
-    path.join(app.getPath('userData'), '.env'),
+    bundledEnv,                                    // fallback: bundled resource
   ];
-  console.log('[ENV] Searching for .env, cwd:', process.cwd(), '__dirname:', __dirname);
   for (const envPath of candidates) {
-    console.log('[ENV] Checking:', envPath, '→', fs.existsSync(envPath) ? 'FOUND' : 'not found');
     if (fs.existsSync(envPath)) {
       const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
       for (const line of lines) {
@@ -79,12 +90,8 @@ class TimeTrackApp {
     // Initialize database
     this.db = new DatabaseService();
 
-    // Re-load .env now that app is ready (getAppPath + userData are now valid)
+    // Re-load .env now that app is ready (userData path is valid)
     loadEnv();
-
-    // Log .env location for debugging (never create or overwrite)
-    const userDataEnv = path.join(app.getPath('userData'), '.env');
-    console.log('[ENV] userData .env path:', userDataEnv, fs.existsSync(userDataEnv) ? 'EXISTS' : 'not found');
 
     // Initialize PostgreSQL + sync
     this.pg = new PostgresService();
