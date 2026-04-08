@@ -82,19 +82,9 @@ class TimeTrackApp {
     // Re-load .env now that app is ready (getAppPath + userData are now valid)
     loadEnv();
 
-    // If DATABASE_URL still not set, check if there's a .env in userData
-    // (useful for packaged apps — user can put .env next to the exe or in userData)
-    if (!process.env.DATABASE_URL) {
-      const userDataEnv = path.join(app.getPath('userData'), '.env');
-      console.log('[ENV] userData .env path:', userDataEnv);
-      if (!fs.existsSync(userDataEnv)) {
-        // Create a template .env in userData so user knows where to put it
-        fs.writeFileSync(userDataEnv,
-          '# Paste your Railway DATABASE_URL below\nDATABASE_URL=\n'
-        );
-        console.log('[ENV] Created template .env in userData:', userDataEnv);
-      }
-    }
+    // Log .env location for debugging (never create or overwrite)
+    const userDataEnv = path.join(app.getPath('userData'), '.env');
+    console.log('[ENV] userData .env path:', userDataEnv, fs.existsSync(userDataEnv) ? 'EXISTS' : 'not found');
 
     // Initialize PostgreSQL + sync
     this.pg = new PostgresService();

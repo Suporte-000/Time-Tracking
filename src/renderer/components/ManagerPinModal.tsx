@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useI18n } from '../i18nContext';
 
 interface Props {
   onSuccess: () => void;
@@ -6,6 +7,7 @@ interface Props {
 }
 
 const ManagerPinModal: React.FC<Props> = ({ onSuccess, onCancel }) => {
+  const { t } = useI18n();
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,8 +21,8 @@ const ManagerPinModal: React.FC<Props> = ({ onSuccess, onCancel }) => {
     try {
       const ok = await window.electron.verifyManagerPin(pin);
       if (ok) { onSuccess(); }
-      else { setError('Incorrect password.'); setPin(''); }
-    } catch { setError('Connection error.'); }
+      else { setError(t('password.incorrect')); setPin(''); }
+    } catch { setError(t('password.connectionError')); }
     finally { setLoading(false); }
   };
 
@@ -35,10 +37,10 @@ const ManagerPinModal: React.FC<Props> = ({ onSuccess, onCancel }) => {
       }}>
         <div style={{ fontSize: '28px', marginBottom: '12px' }}>🔒</div>
         <div style={{ fontSize: '18px', fontWeight: 700, color: '#E8F6F5', marginBottom: '6px' }}>
-          Manager Access
+          {t('management.title')}
         </div>
         <div style={{ fontSize: '12px', color: '#718096', marginBottom: '24px' }}>
-          Enter the administrator password to continue.
+          {t('password.enterToContinue')}
         </div>
 
         <input
@@ -47,7 +49,7 @@ const ManagerPinModal: React.FC<Props> = ({ onSuccess, onCancel }) => {
           value={pin}
           onChange={e => { setPin(e.target.value); setError(''); }}
           onKeyDown={e => e.key === 'Enter' && handleVerify()}
-          placeholder="Password"
+          placeholder={t('password.placeholder')}
           maxLength={20}
           style={{
             width: '100%', padding: '10px', textAlign: 'center', letterSpacing: '4px',
@@ -67,7 +69,7 @@ const ManagerPinModal: React.FC<Props> = ({ onSuccess, onCancel }) => {
               borderRadius: '8px', color: '#718096', fontSize: '13px', cursor: 'pointer',
             }}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleVerify}
@@ -78,7 +80,7 @@ const ManagerPinModal: React.FC<Props> = ({ onSuccess, onCancel }) => {
               cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? '...' : 'Enter'}
+            {loading ? '...' : t('password.enter')}
           </button>
         </div>
       </div>

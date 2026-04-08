@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { TeamTimeEntry, TeamMember } from '../../shared/types';
+import { useI18n } from '../i18nContext';
 
 interface Props {
   entry: TeamTimeEntry;
@@ -25,6 +26,7 @@ function formatDuration(seconds: number): string {
 }
 
 const AjustarModal: React.FC<Props> = ({ entry, member, projects, managerId, managerName, onSave, onClose }) => {
+  const { t } = useI18n();
   const [startTime, setStartTime] = useState(toLocalInput(entry.start_time));
   const [endTime, setEndTime] = useState(toLocalInput(entry.end_time));
   const [projectId, setProjectId] = useState(entry.project_id || '');
@@ -37,10 +39,10 @@ const AjustarModal: React.FC<Props> = ({ entry, member, projects, managerId, man
     : 0;
 
   const handleSave = async () => {
-    if (!startTime) { setError('Start time is required.'); return; }
-    if (!motive.trim()) { setError('Motive/reason is required.'); return; }
+    if (!startTime) { setError(t('adjust.startRequired')); return; }
+    if (!motive.trim()) { setError(t('adjust.motiveRequired')); return; }
     if (endTime && new Date(endTime) <= new Date(startTime)) {
-      setError('End time must be after start time.'); return;
+      setError(t('adjust.endAfterStart')); return;
     }
 
     setSaving(true);
@@ -82,7 +84,7 @@ const AjustarModal: React.FC<Props> = ({ entry, member, projects, managerId, man
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#E8F6F5' }}>Adjust Entry</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#E8F6F5' }}>{t('adjust.title')}</div>
             <div style={{ fontSize: '12px', color: '#718096', marginTop: '2px' }}>
               {member.name} · {entry.app_name}
             </div>
@@ -92,33 +94,33 @@ const AjustarModal: React.FC<Props> = ({ entry, member, projects, managerId, man
 
         {/* Original values */}
         <div style={{ background: '#0A0E14', borderRadius: '8px', padding: '10px 14px', marginBottom: '20px', fontSize: '12px', color: '#4A5568' }}>
-          <span style={{ color: '#718096' }}>Original: </span>
-          {toLocalInput(entry.start_time).replace('T', ' ')} → {entry.end_time ? toLocalInput(entry.end_time).replace('T', ' ') : 'active'}
-          {' · '}{entry.project_name || 'No project'}
+          <span style={{ color: '#718096' }}>{t('adjust.original')}: </span>
+          {toLocalInput(entry.start_time).replace('T', ' ')} → {entry.end_time ? toLocalInput(entry.end_time).replace('T', ' ') : t('adjust.active')}
+          {' · '}{entry.project_name || t('adjust.noProject')}
         </div>
 
         {/* Fields */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
           <div>
-            <label style={labelStyle}>Start Time</label>
+            <label style={labelStyle}>{t('adjust.startTime')}</label>
             <input type="datetime-local" value={startTime} onChange={e => { setStartTime(e.target.value); setError(''); }} style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>End Time</label>
+            <label style={labelStyle}>{t('adjust.endTime')}</label>
             <input type="datetime-local" value={endTime} onChange={e => { setEndTime(e.target.value); setError(''); }} style={inputStyle} />
           </div>
         </div>
 
         {startTime && endTime && (
           <div style={{ fontSize: '12px', color: '#1FB8A0', marginBottom: '14px' }}>
-            New duration: {formatDuration(newDuration)}
+            {t('adjust.newDuration')}: {formatDuration(newDuration)}
           </div>
         )}
 
         <div style={{ marginBottom: '14px' }}>
-          <label style={labelStyle}>Project</label>
+          <label style={labelStyle}>{t('adjust.project')}</label>
           <select value={projectId} onChange={e => setProjectId(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
-            <option value="">— No project —</option>
+            <option value="">{t('adjust.noProject')}</option>
             {projects.map(p => (
               <option key={p.id} value={p.id}>{p.name}{p.subproject ? ` › ${p.subproject}` : ''}</option>
             ))}
@@ -126,11 +128,11 @@ const AjustarModal: React.FC<Props> = ({ entry, member, projects, managerId, man
         </div>
 
         <div style={{ marginBottom: '20px' }}>
-          <label style={labelStyle}>Motive / Reason <span style={{ color: '#FC8181' }}>*</span></label>
+          <label style={labelStyle}>{t('adjust.motive')} <span style={{ color: '#FC8181' }}>*</span></label>
           <textarea
             value={motive}
             onChange={e => { setMotive(e.target.value); setError(''); }}
-            placeholder="Explain why this entry is being adjusted..."
+            placeholder={t('adjust.motivePlaceholder')}
             rows={3}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
           />
@@ -140,10 +142,10 @@ const AjustarModal: React.FC<Props> = ({ entry, member, projects, managerId, man
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={onClose} style={{ flex: 1, padding: '9px', background: 'transparent', border: '1px solid #1E2530', borderRadius: '8px', color: '#718096', fontSize: '13px', cursor: 'pointer' }}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '9px', background: '#1FB8A0', border: 'none', borderRadius: '8px', color: '#0B5563', fontWeight: 700, fontSize: '13px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-            {saving ? 'Saving...' : 'Save Adjustment'}
+            {saving ? t('adjust.saving') : t('adjust.save')}
           </button>
         </div>
       </div>

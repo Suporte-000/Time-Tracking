@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useI18n } from '../i18nContext';
+
 
 const COLORS = [
   '#14919B', '#1FB8A0', '#0B5563', '#8B5CF6',
@@ -14,12 +16,13 @@ interface Props {
 }
 
 const FirstRunSetup: React.FC<Props> = ({ onComplete }) => {
+  const { t } = useI18n();
   const [name, setName] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [error, setError] = useState('');
 
   const handleSubmit = () => {
-    if (!name.trim()) { setError('Please enter your name.'); return; }
+    if (!name.trim()) { setError(t('firstrun.nameRequired')); return; }
     onComplete({ name: name.trim(), initials: getInitials(name), color });
   };
 
@@ -33,21 +36,21 @@ const FirstRunSetup: React.FC<Props> = ({ onComplete }) => {
         padding: '36px 40px', width: '380px',
       }}>
         <div style={{ fontSize: '22px', fontWeight: 700, color: '#E8F6F5', marginBottom: '6px' }}>
-          Welcome to TimeTrack
+          {t('firstrun.title')}
         </div>
         <div style={{ fontSize: '13px', color: '#718096', marginBottom: '28px' }}>
-          Set up your profile to get started.
+          {t('firstrun.subtitle')}
         </div>
 
         <label style={{ fontSize: '11px', fontWeight: 600, color: '#4A5568', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-          Your Name
+          {t('firstrun.yourName')}
         </label>
         <input
           autoFocus
           value={name}
           onChange={e => { setName(e.target.value); setError(''); }}
           onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-          placeholder="e.g. Rodrigo C."
+          placeholder={t('firstrun.namePlaceholder')}
           style={{
             display: 'block', width: '100%', marginTop: '6px', marginBottom: '20px',
             padding: '9px 12px', background: '#0A0E14', border: '1px solid #1E2530',
@@ -56,7 +59,7 @@ const FirstRunSetup: React.FC<Props> = ({ onComplete }) => {
         />
 
         <label style={{ fontSize: '11px', fontWeight: 600, color: '#4A5568', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-          Profile Color
+          {t('firstrun.profileColor')}
         </label>
         <div style={{ display: 'flex', gap: '10px', marginTop: '8px', marginBottom: '28px', flexWrap: 'wrap' }}>
           {COLORS.map(c => (
@@ -82,8 +85,8 @@ const FirstRunSetup: React.FC<Props> = ({ onComplete }) => {
             {name ? getInitials(name) : '?'}
           </div>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>{name || 'Your Name'}</div>
-            <div style={{ fontSize: '11px', color: '#4A5568' }}>Member</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#E2E8F0' }}>{name || t('firstrun.yourName')}</div>
+            <div style={{ fontSize: '11px', color: '#4A5568' }}>{t('firstrun.member')}</div>
           </div>
         </div>
 
@@ -96,7 +99,7 @@ const FirstRunSetup: React.FC<Props> = ({ onComplete }) => {
             borderRadius: '8px', color: '#0B5563', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
           }}
         >
-          Start Using TimeTrack
+          {t('firstrun.start')}
         </button>
       </div>
     </div>

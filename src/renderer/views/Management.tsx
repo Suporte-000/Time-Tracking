@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AjustarModal from '../components/AjustarModal';
 import type { TeamMember, TeamTimeEntry, TeamAuditLog, LocalUserConfig } from '../../shared/types';
+import { useI18n } from '../i18nContext';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function formatDuration(seconds: number): string {
@@ -20,8 +21,9 @@ function getInitials(name: string): string {
 
 const MEMBER_COLORS = ['#14919B','#1FB8A0','#8B5CF6','#EC4899','#F59E0B','#10B981','#3B82F6','#EF4444'];
 
-// ── Change PIN modal ─────────────────────────────────────────────────────────
+// ── Change Password modal ─────────────────────────────────────────────────────
 const ChangePinModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { t } = useI18n();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -29,21 +31,23 @@ const ChangePinModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [ok, setOk] = useState(false);
 
   const handleSave = async () => {
-    if (!current) { setMsg('Enter current password.'); return; }
+    if (!current) { setMsg(t('password.currentRequired')); return; }
     const valid = await window.electron.verifyManagerPin(current);
-    if (!valid) { setMsg('Current password is incorrect.'); return; }
-    if (!next || next.length < 4) { setMsg('New password must be at least 4 characters.'); return; }
-    if (next !== confirm) { setMsg('Passwords do not match.'); return; }
+    if (!valid) { setMsg(t('password.currentIncorrect')); return; }
+    if (!next || next.length < 4) { setMsg(t('password.tooShort')); return; }
+    if (next !== confirm) { setMsg(t('password.noMatch')); return; }
     await window.electron.setManagerPin(next);
     setMsg(''); setOk(true);
     setTimeout(onClose, 1200);
   };
 
+  const fields = [t('password.current'), t('password.new'), t('password.confirm')];
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
       <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px 32px', width:'340px' }}>
-        <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'20px' }}>Change Manager Password</div>
-        {['Current Password','New Password','Confirm New Password'].map((label, i) => (
+        <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'20px' }}>{t('password.changeTitle')}</div>
+        {fields.map((label, i) => (
           <div key={i} style={{ marginBottom:'12px' }}>
             <label style={labelStyle}>{label}</label>
             <input type="password" value={[current,next,confirm][i]}
@@ -53,10 +57,10 @@ const ChangePinModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </div>
         ))}
         {msg && <div style={{ fontSize:'12px', color:'#FC8181', marginBottom:'10px' }}>{msg}</div>}
-        {ok  && <div style={{ fontSize:'12px', color:'#1FB8A0', marginBottom:'10px' }}>✓ Password updated!</div>}
+        {ok  && <div style={{ fontSize:'12px', color:'#1FB8A0', marginBottom:'10px' }}>{t('password.updated')}</div>}
         <div style={{ display:'flex', gap:'10px', marginTop:'8px' }}>
-          <button onClick={onClose} style={{ flex:1, padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer' }}>Cancel</button>
-          <button onClick={handleSave} style={{ flex:2, padding:'9px', background:'#1FB8A0', border:'none', borderRadius:'8px', color:'#0B5563', fontWeight:700, cursor:'pointer' }}>Save</button>
+          <button onClick={onClose} style={{ flex:1, padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer' }}>{t('common.cancel')}</button>
+          <button onClick={handleSave} style={{ flex:2, padding:'9px', background:'#1FB8A0', border:'none', borderRadius:'8px', color:'#0B5563', fontWeight:700, cursor:'pointer' }}>{t('password.save')}</button>
         </div>
       </div>
     </div>
@@ -71,6 +75,7 @@ const ProjectModal: React.FC<{
   onSave: (name: string, subproject: string, color: string) => void;
   onClose: () => void;
 }> = ({ project, onSave, onClose }) => {
+  const { t } = useI18n();
   const [name, setName] = useState(project?.name || '');
   const [sub, setSub] = useState(project?.subproject || '');
   const [color, setColor] = useState(project?.color || PROJECT_COLORS[0]);
@@ -79,12 +84,12 @@ const ProjectModal: React.FC<{
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
       <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px 32px', width:'380px' }}>
-        <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'20px' }}>{project ? 'Edit Project' : 'New Project'}</div>
-        <label style={labelStyle}>Project Name</label>
+        <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'20px' }}>{project ? t('modal.editProject') : t('modal.newProject')}</div>
+        <label style={labelStyle}>{t('modal.projectName')}</label>
         <input value={name} onChange={e=>{setName(e.target.value);setErr('');}} autoFocus style={{ ...inputStyle, marginBottom:'14px' }} />
-        <label style={labelStyle}>Subproject (optional)</label>
+        <label style={labelStyle}>{t('modal.subproject')}</label>
         <input value={sub} onChange={e=>setSub(e.target.value)} style={{ ...inputStyle, marginBottom:'14px' }} />
-        <label style={labelStyle}>Color</label>
+        <label style={labelStyle}>{t('modal.color')}</label>
         <div style={{ display:'flex', gap:'8px', marginBottom:'20px', flexWrap:'wrap' }}>
           {PROJECT_COLORS.map(c => (
             <div key={c} onClick={()=>setColor(c)} style={{ width:'28px', height:'28px', borderRadius:'7px', background:c, cursor:'pointer', border: color===c ? '3px solid #E8F6F5' : '3px solid transparent' }} />
@@ -92,8 +97,8 @@ const ProjectModal: React.FC<{
         </div>
         {err && <div style={{ fontSize:'12px', color:'#FC8181', marginBottom:'10px' }}>{err}</div>}
         <div style={{ display:'flex', gap:'10px' }}>
-          <button onClick={onClose} style={{ flex:1, padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer' }}>Cancel</button>
-          <button onClick={()=>{ if(!name.trim()){setErr('Name required');return;} onSave(name.trim(), sub.trim(), color); }} style={{ flex:2, padding:'9px', background:'#1FB8A0', border:'none', borderRadius:'8px', color:'#0B5563', fontWeight:700, cursor:'pointer' }}>Save</button>
+          <button onClick={onClose} style={{ flex:1, padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer' }}>{t('common.cancel')}</button>
+          <button onClick={()=>{ if(!name.trim()){setErr(t('modal.nameRequired'));return;} onSave(name.trim(), sub.trim(), color); }} style={{ flex:2, padding:'9px', background:'#1FB8A0', border:'none', borderRadius:'8px', color:'#0B5563', fontWeight:700, cursor:'pointer' }}>{t('common.save')}</button>
         </div>
       </div>
     </div>
@@ -106,59 +111,61 @@ const AddProgramModal: React.FC<{
   onSave: (processName: string, displayName: string) => void;
   onClose: () => void;
 }> = ({ projectName, onSave, onClose }) => {
+  const { t } = useI18n();
   const [displayName, setDisplayName] = useState('');
   const [processName, setProcessName] = useState('');
   const [err, setErr] = useState('');
 
+  function handleSave() {
+    if (!displayName.trim()) { setErr(t('modal.displayNameRequired')); return; }
+    if (!processName.trim()) { setErr(t('modal.processNameRequired')); return; }
+    onSave(processName.trim(), displayName.trim());
+  }
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
       <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px 32px', width:'380px' }}>
-        <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'4px' }}>Add Program</div>
-        <div style={{ fontSize:'12px', color:'#718096', marginBottom:'20px' }}>Linked to: {projectName}</div>
-        <label style={labelStyle}>Display Name</label>
+        <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'4px' }}>{t('modal.addProgram')}</div>
+        <div style={{ fontSize:'12px', color:'#718096', marginBottom:'20px' }}>{t('modal.linkedTo')}: {projectName}</div>
+        <label style={labelStyle}>{t('modal.displayName')}</label>
         <input value={displayName} onChange={e=>{setDisplayName(e.target.value);setErr('');}} placeholder="e.g. Google Chrome" autoFocus style={{ ...inputStyle, marginBottom:'14px' }} />
-        <label style={labelStyle}>Process Name (without .exe)</label>
+        <label style={labelStyle}>{t('modal.processName')}</label>
         <input value={processName} onChange={e=>{setProcessName(e.target.value);setErr('');}} placeholder="e.g. chrome"
           onKeyDown={e=>e.key==='Enter'&&handleSave()}
           style={{ ...inputStyle, marginBottom:'6px' }} />
-        <div style={{ fontSize:'11px', color:'#4A5568', marginBottom:'18px' }}>Check Task Manager → Details tab for the exact process name</div>
+        <div style={{ fontSize:'11px', color:'#4A5568', marginBottom:'18px' }}>{t('modal.processHint')}</div>
         {err && <div style={{ fontSize:'12px', color:'#FC8181', marginBottom:'10px' }}>{err}</div>}
         <div style={{ display:'flex', gap:'10px' }}>
-          <button onClick={onClose} style={{ flex:1, padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer' }}>Cancel</button>
-          <button onClick={handleSave} style={{ flex:2, padding:'9px', background:'#1FB8A0', border:'none', borderRadius:'8px', color:'#0B5563', fontWeight:700, cursor:'pointer' }}>Add</button>
+          <button onClick={onClose} style={{ flex:1, padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer' }}>{t('common.cancel')}</button>
+          <button onClick={handleSave} style={{ flex:2, padding:'9px', background:'#1FB8A0', border:'none', borderRadius:'8px', color:'#0B5563', fontWeight:700, cursor:'pointer' }}>{t('common.add')}</button>
         </div>
       </div>
     </div>
   );
-
-  function handleSave() {
-    if (!displayName.trim()) { setErr('Display name required.'); return; }
-    if (!processName.trim()) { setErr('Process name required.'); return; }
-    onSave(processName.trim(), displayName.trim());
-  }
 };
 
 // ── PIN gate modal ───────────────────────────────────────────────────────────
 const PinGateModal: React.FC<{ onSuccess: ()=>void; onCancel: ()=>void }> = ({ onSuccess, onCancel }) => {
+  const { t } = useI18n();
   const [pin, setPin] = useState('');
   const [err, setErr] = useState('');
   const verify = async () => {
     const ok = await window.electron.verifyManagerPin(pin);
-    if (ok) onSuccess(); else { setErr('Incorrect password.'); setPin(''); }
+    if (ok) onSuccess(); else { setErr(t('password.incorrect')); setPin(''); }
   };
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
       <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'32px 36px', width:'300px', textAlign:'center' }}>
         <div style={{ fontSize:'32px', marginBottom:'12px' }}>🔒</div>
-        <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'6px' }}>Manager Access</div>
-        <div style={{ fontSize:'12px', color:'#718096', marginBottom:'20px' }}>Default password: 12345678</div>
+        <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'6px' }}>{t('management.title')}</div>
+        <div style={{ fontSize:'12px', color:'#718096', marginBottom:'20px' }}>{t('management.enterPassword')}</div>
         <input type="password" value={pin} onChange={e=>{setPin(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&verify()}
-          placeholder="Password" autoFocus
+          placeholder={t('password.placeholder')} autoFocus
           style={{ width:'100%', padding:'10px', textAlign:'center', letterSpacing:'4px', background:'#0A0E14', border:`1px solid ${err?'#FC8181':'#1E2530'}`, borderRadius:'8px', color:'#E2E8F0', fontSize:'18px', outline:'none', marginBottom:'8px' }} />
         {err && <div style={{ fontSize:'12px', color:'#FC8181', marginBottom:'10px' }}>{err}</div>}
         <div style={{ display:'flex', gap:'10px', marginTop:'8px' }}>
-          <button onClick={onCancel} style={{ flex:1, padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer' }}>Cancel</button>
-          <button onClick={verify} style={{ flex:2, padding:'9px', background:'#1FB8A0', border:'none', borderRadius:'8px', color:'#0B5563', fontWeight:700, cursor:'pointer' }}>Enter</button>
+          <button onClick={onCancel} style={{ flex:1, padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer' }}>{t('common.cancel')}</button>
+          <button onClick={verify} style={{ flex:2, padding:'9px', background:'#1FB8A0', border:'none', borderRadius:'8px', color:'#0B5563', fontWeight:700, cursor:'pointer' }}>{t('password.enter')}</button>
         </div>
       </div>
     </div>
@@ -167,6 +174,7 @@ const PinGateModal: React.FC<{ onSuccess: ()=>void; onCancel: ()=>void }> = ({ o
 
 // ── Main component ───────────────────────────────────────────────────────────
 const Management: React.FC = () => {
+  const { t } = useI18n();
   const [pinVerified, setPinVerified] = useState(false);
   const [showPinGate, setShowPinGate] = useState(false);
   const [pgConnected, setPgConnected] = useState(false);
@@ -286,16 +294,16 @@ const Management: React.FC = () => {
           />
         )}
         <div style={{ fontSize:'48px', marginBottom:'16px' }}>👔</div>
-        <div style={{ fontSize:'20px', fontWeight:700, color:'#E8F6F5', marginBottom:'8px' }}>Gestão da Equipe</div>
-        <div style={{ fontSize:'13px', color:'#718096', marginBottom:'16px' }}>Acesso exclusivo para gestores</div>
+        <div style={{ fontSize:'20px', fontWeight:700, color:'#E8F6F5', marginBottom:'8px' }}>{t('management.title')}</div>
+        <div style={{ fontSize:'13px', color:'#718096', marginBottom:'16px' }}>{t('management.description')}</div>
         {!pgConnected && (
           <div style={{ fontSize:'12px', color:'#F6AD55', marginBottom:'16px', background:'#2A1A0A', border:'1px solid #C05621', padding:'8px 14px', borderRadius:'8px' }}>
-            ⚠ PostgreSQL not connected
+            ⚠ {t('management.pgNotConnected')}
           </div>
         )}
         <button onClick={()=>setShowPinGate(true)} disabled={!pgConnected}
           style={{ padding:'10px 28px', background: pgConnected ? '#1FB8A0' : '#2D3748', border:'none', borderRadius:'8px', color: pgConnected ? '#0B5563' : '#4A5568', fontWeight:700, fontSize:'14px', cursor: pgConnected ? 'pointer' : 'not-allowed' }}>
-          Enter
+          {t('password.enter')}
         </button>
       </div>
     );
@@ -329,44 +337,44 @@ const Management: React.FC = () => {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'20px' }}>
         <div>
-          <div style={{ fontSize:'22px', fontWeight:700, color:'#E2E8F0' }}>Gestão da Equipe</div>
+          <div style={{ fontSize:'22px', fontWeight:700, color:'#E2E8F0' }}>{t('management.title')}</div>
           <div style={{ fontSize:'12px', color:'#718096', marginTop:'4px' }}>
-            Acesso exclusivo para gestores · Hoje, {new Date().toLocaleDateString('pt-BR')}
+            {t('management.subtitle')} · {t('management.today')}, {new Date().toLocaleDateString()}
           </div>
         </div>
         <div style={{ display:'flex', gap:'10px' }}>
-          <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>🔒 Change Password</button>
-          <button onClick={loadAll} className="btn" style={{ fontSize:'12px' }}>↻ Refresh</button>
+          <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>🔒 {t('management.changePassword')}</button>
+          <button onClick={loadAll} className="btn" style={{ fontSize:'12px' }}>↻ {t('management.refresh')}</button>
         </div>
       </div>
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:'4px', marginBottom:'20px', background:'#0A0E14', borderRadius:'10px', padding:'4px', width:'fit-content' }}>
-        {(['projects','team'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
+        {(['projects','team'] as const).map(tabKey => (
+          <button key={tabKey} onClick={() => setTab(tabKey)} style={{
             padding:'7px 20px', borderRadius:'7px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:600,
-            background: tab===t ? '#161C26' : 'transparent',
-            color: tab===t ? '#E2E8F0' : '#4A5568',
+            background: tab===tabKey ? '#161C26' : 'transparent',
+            color: tab===tabKey ? '#E2E8F0' : '#4A5568',
           }}>
-            {t === 'projects' ? '📁 Projects' : '👥 Team'}
+            {tabKey === 'projects' ? `📁 ${t('management.tabProjects')}` : `👥 ${t('management.tabTeam')}`}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div style={{ color:'#4A5568', textAlign:'center', padding:'40px' }}>Loading...</div>
+        <div style={{ color:'#4A5568', textAlign:'center', padding:'40px' }}>{t('common.loading')}</div>
       ) : tab === 'projects' ? (
 
         /* ── PROJECTS TAB ── */
         <div>
           <div style={{ display:'flex', gap:'10px', marginBottom:'16px' }}>
-            <button className="btn btn-primary" onClick={() => setShowProjectModal(true)}>+ New Project</button>
-            <button className="btn" onClick={() => importRef.current?.click()}>⬆ Import CSV</button>
+            <button className="btn btn-primary" onClick={() => setShowProjectModal(true)}>+ {t('management.newProject')}</button>
+            <button className="btn" onClick={() => importRef.current?.click()}>⬆ {t('management.importCsv')}</button>
             <input ref={importRef} type="file" accept=".txt,.csv" style={{ display:'none' }} onChange={handleImportCSV} />
           </div>
 
           {projects.length === 0 ? (
-            <div style={{ color:'#4A5568', textAlign:'center', padding:'40px' }}>No projects yet. Create one above.</div>
+            <div style={{ color:'#4A5568', textAlign:'center', padding:'40px' }}>{t('management.noProjects')}</div>
           ) : projects.map(proj => {
             const projPrograms = programs.filter(p => p.projectId === proj.id);
             return (
@@ -378,9 +386,9 @@ const Management: React.FC = () => {
                     <div style={{ fontSize:'14px', fontWeight:600, color:'#E2E8F0' }}>
                       {proj.name}{proj.subproject ? <span style={{ color:'#718096' }}> › {proj.subproject}</span> : ''}
                     </div>
-                    <div style={{ fontSize:'11px', color:'#4A5568' }}>{projPrograms.length} program{projPrograms.length !== 1 ? 's' : ''} linked</div>
+                    <div style={{ fontSize:'11px', color:'#4A5568' }}>{projPrograms.length} {t('management.programsLinked')}</div>
                   </div>
-                  <button onClick={() => setAddProgramFor(proj)} className="btn" style={{ fontSize:'11px', padding:'4px 10px' }}>+ Program</button>
+                  <button onClick={() => setAddProgramFor(proj)} className="btn" style={{ fontSize:'11px', padding:'4px 10px' }}>+ {t('management.addProgram')}</button>
                   <button onClick={() => handleDeleteProject(proj.id)} style={{ background:'none', border:'none', color:'#4A5568', cursor:'pointer', fontSize:'14px', padding:'4px' }} title="Delete">✕</button>
                 </div>
 
@@ -407,20 +415,20 @@ const Management: React.FC = () => {
           {/* Manual adjustments alert */}
           {auditLog.length > 0 && (
             <div style={{ background:'#2A1A0A', border:'1px solid #C05621', borderRadius:'10px', padding:'12px 16px', marginBottom:'20px', fontSize:'13px', color:'#F6AD55', display:'flex', alignItems:'center', gap:'10px' }}>
-              ⚠ <span><strong>{auditLog.length} ajuste{auditLog.length>1?'s':''} manual{auditLog.length>1?'is':''}</strong> realizados hoje</span>
+              ⚠ <span><strong>{auditLog.length}</strong> {t('management.manualAdjustAlert')}</span>
             </div>
           )}
 
           {/* Members table */}
           <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', marginBottom:'24px', overflow:'hidden' }}>
             <div style={{ padding:'10px 16px', borderBottom:'1px solid #1A1F2B', display:'grid', gridTemplateColumns:'180px 1fr 80px 70px 80px', gap:'12px' }}>
-              {['MEMBRO','PROJETOS DE HOJE','TOTAL','META','AÇÃO'].map(h => (
+              {[t('management.colMember'),t('management.colProjects'),t('management.colTotal'),t('management.colGoal'),t('management.colAction')].map(h => (
                 <div key={h} style={{ fontSize:'10px', fontWeight:700, color:'#4A5568', letterSpacing:'0.8px' }}>{h}</div>
               ))}
             </div>
             {members.length === 0 ? (
               <div style={{ padding:'32px', textAlign:'center', color:'#4A5568', fontSize:'13px' }}>
-                No team members yet. Members are registered automatically on first launch.
+                {t('management.noMembers')}
               </div>
             ) : members.map(member => {
               const total = getMemberTotal(member.id);
@@ -446,7 +454,7 @@ const Management: React.FC = () => {
                     <button onClick={() => {
                       const entries = teamEntries.filter(e => e.user_id === member.id && e.end_time);
                       if (entries.length > 0) setAdjustEntry(entries[0]);
-                    }} className="btn" style={{ fontSize:'11px', padding:'4px 10px' }}>Ajustar</button>
+                    }} className="btn" style={{ fontSize:'11px', padding:'4px 10px' }}>{t('management.adjust')}</button>
                   </div>
                 </div>
               );
@@ -457,7 +465,7 @@ const Management: React.FC = () => {
           {auditLog.length > 0 && (
             <div>
               <div style={{ fontSize:'10px', fontWeight:700, color:'#4A5568', letterSpacing:'1px', textTransform:'uppercase', marginBottom:'10px' }}>
-                AUDIT LOG — AJUSTES MANUAIS DE HOJE
+                {t('management.auditLog')}
               </div>
               {auditLog.map(log => (
                 <div key={log.id} style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'10px', padding:'12px 16px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
@@ -465,7 +473,7 @@ const Management: React.FC = () => {
                     <span style={{ color:'#F6AD55' }}>✏</span>
                     <div>
                       <div style={{ fontSize:'13px', color:'#CBD5E0' }}>
-                        <strong style={{ color:'#E2E8F0' }}>{log.manager_name}</strong> ajustou registro de <strong style={{ color:'#E2E8F0' }}>{log.target_user_name}</strong> · {log.project_name}
+                        <strong style={{ color:'#E2E8F0' }}>{log.manager_name}</strong> {t('management.adjustedRecord')} <strong style={{ color:'#E2E8F0' }}>{log.target_user_name}</strong> · {log.project_name}
                       </div>
                       <div style={{ fontSize:'11px', color:'#718096', marginTop:'3px' }}>
                         {log.old_start_time ? formatTime(log.old_start_time) : '?'}
