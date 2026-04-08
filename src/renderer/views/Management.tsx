@@ -227,6 +227,7 @@ const PinGateModal: React.FC<{ onSuccess: ()=>void; onCancel: ()=>void }> = ({ o
 // ── Main component ───────────────────────────────────────────────────────────
 const Management: React.FC = () => {
   const { t } = useI18n();
+  const importRef = useRef<HTMLInputElement>(null);
   const [pinVerified, setPinVerified] = useState(false);
   const [showPinGate, setShowPinGate] = useState(false);
   const [pgConnected, setPgConnected] = useState(false);
@@ -360,8 +361,6 @@ const Management: React.FC = () => {
       </div>
     );
   }
-
-  const importRef = useRef<HTMLInputElement>(null);
 
   return (
     <div style={{ padding:'20px 24px', overflowY:'auto', height:'100%' }}>

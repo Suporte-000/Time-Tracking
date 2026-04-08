@@ -664,6 +664,14 @@ class TimeTrackApp {
       return this.db?.createProject(project);
     });
 
+    ipcMain.handle(IPC_CHANNELS.UPDATE_PROJECT, (_, id: string, updates) => {
+      return this.db?.updateProject(id, updates);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.DELETE_PROJECT, (_, id: string) => {
+      return this.db?.deleteProject(id);
+    });
+
     ipcMain.handle(IPC_CHANNELS.IMPORT_PROJECTS, (_, filePath: string) => {
       return this.db?.importProjects(filePath);
     });
