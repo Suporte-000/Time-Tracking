@@ -57,6 +57,7 @@ export interface SystemConfig {
   startWithWindows: boolean;
   minimizeToTray: boolean;
   showNotifications: boolean;
+  language: string; // 'en' | 'es' | 'pt-BR'
 }
 
 export interface User {

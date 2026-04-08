@@ -91,7 +91,8 @@ export class DatabaseService {
         backupInterval INTEGER NOT NULL DEFAULT 60,
         startWithWindows INTEGER NOT NULL DEFAULT 0,
         minimizeToTray INTEGER NOT NULL DEFAULT 1,
-        showNotifications INTEGER NOT NULL DEFAULT 0
+        showNotifications INTEGER NOT NULL DEFAULT 0,
+        language TEXT NOT NULL DEFAULT 'en'
       )
     `);
 
@@ -133,6 +134,11 @@ export class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_time_entries_processName ON time_entries(processName);
       CREATE INDEX IF NOT EXISTS idx_project_programs_processName ON project_programs(processName);
     `);
+
+    // Migrate: add language column if missing (existing databases)
+    try {
+      this.db.exec(`ALTER TABLE config ADD COLUMN language TEXT NOT NULL DEFAULT 'en'`);
+    } catch { /* column already exists */ }
 
     console.log('Database tables initialized');
   }
@@ -252,6 +258,26 @@ export class DatabaseService {
     return result.changes > 0;
   }
 
+  // Upsert a project from PostgreSQL (used during pull sync)
+  upsertProject(project: { id: string; name: string; subproject?: string; color: string; isActive: boolean }): void {
+    this.db.prepare(
+      `INSERT INTO projects (id, name, subproject, color, createdAt, isActive)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, subproject=excluded.subproject,
+         color=excluded.color, isActive=excluded.isActive`
+    ).run(project.id, project.name, project.subproject ?? null, project.color,
+          new Date().toISOString(), project.isActive ? 1 : 0);
+  }
+
+  // Upsert a project program from PostgreSQL (used during pull sync)
+  upsertProjectProgram(prog: { id: string; projectId: string; processName: string; displayName: string }): void {
+    this.db.prepare(
+      `INSERT INTO project_programs (id, projectId, processName, displayName, createdAt)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(projectId, processName) DO UPDATE SET displayName=excluded.displayName, id=excluded.id`
+    ).run(prog.id, prog.projectId, prog.processName, prog.displayName, new Date().toISOString());
+  }
+
   /**
    * Import projects from CSV/TXT/XLSX
    * Format: "ProjectName\tSubproject" (one per line)
@@ -336,6 +362,7 @@ export class DatabaseService {
       startWithWindows: Boolean((row as any).startWithWindows),
       minimizeToTray: Boolean((row as any).minimizeToTray),
       showNotifications: Boolean((row as any).showNotifications),
+      language: (row as any).language || 'en',
     } as SystemConfig;
   }
 
@@ -370,6 +397,10 @@ export class DatabaseService {
     if (config.showNotifications !== undefined) {
       fields.push('showNotifications = ?');
       values.push(config.showNotifications ? 1 : 0);
+    }
+    if (config.language !== undefined) {
+      fields.push('language = ?');
+      values.push(config.language);
     }
 
     if (fields.length === 0) return false;

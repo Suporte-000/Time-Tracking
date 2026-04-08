@@ -57,12 +57,20 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
     setLoadingApps(true);
     console.log('[Popup][INFO] loadData called');
     try {
-      const [apps, allProjects] = await Promise.all([
+      const [apps, allProjects, registeredPrograms] = await Promise.all([
         window.electron.getRunningApps ? window.electron.getRunningApps() : Promise.resolve([]),
         window.electron.getProjects(),
+        window.electron.getProjectPrograms(),
       ]);
       console.log(`[Popup][INFO] getRunningApps returned ${apps?.length} items`);
-      const running = (apps as RunningApp[]) || [];
+
+      // Only show running apps that are registered in the database
+      const registeredProcessNames = new Set(
+        (registeredPrograms as any[]).map((p: any) => p.processName.toLowerCase())
+      );
+      const running = ((apps as RunningApp[]) || []).filter(
+        a => registeredProcessNames.has(a.processName.toLowerCase())
+      );
       setRunningApps(running);
       setProjects((allProjects as Project[]).filter(p => p.isActive));
 

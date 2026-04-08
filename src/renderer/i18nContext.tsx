@@ -19,6 +19,8 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setLang = useCallback((newLang: Language) => {
     saveLanguage(newLang);
     setLangState(newLang);
+    // Persist language to SQLite config so main process can use it (e.g. notifications)
+    window.electron?.updateConfig?.({ language: newLang } as any);
   }, []);
 
   const t = useCallback((key: TranslationKey) => translate(key, lang), [lang]);

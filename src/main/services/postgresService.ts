@@ -251,6 +251,29 @@ export class PostgresService {
     );
   }
 
+  async deleteProject(id: string): Promise<void> {
+    await this.pool!.query(`UPDATE projects SET is_active=FALSE WHERE id=$1`, [id]);
+  }
+
+  async deleteProjectProgram(id: string): Promise<void> {
+    await this.pool!.query(`DELETE FROM project_programs WHERE id=$1`, [id]);
+  }
+
+  async getProjectPrograms(): Promise<any[]> {
+    if (!this.connected) return [];
+    const res = await this.pool!.query('SELECT * FROM project_programs ORDER BY display_name');
+    return res.rows;
+  }
+
+  async upsertProjectProgram(program: { id: string; project_id: string; process_name: string; display_name: string }): Promise<void> {
+    await this.pool!.query(
+      `INSERT INTO project_programs (id, project_id, process_name, display_name)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (project_id, process_name) DO UPDATE SET display_name=$4, id=$1`,
+      [program.id, program.project_id, program.process_name, program.display_name]
+    );
+  }
+
   // ==================== TIME ENTRIES ====================
 
   async upsertTimeEntry(entry: any, userId: string): Promise<void> {

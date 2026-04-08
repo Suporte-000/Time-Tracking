@@ -132,6 +132,39 @@ export class SyncService {
     }
   }
 
+  // Pull projects and project_programs from PostgreSQL into local SQLite
+  async pullFromPostgres(): Promise<void> {
+    if (!this.pg.isConnected()) return;
+    try {
+      // Pull projects
+      const pgProjects = await this.pg.getProjects();
+      for (const p of pgProjects) {
+        this.db.upsertProject({
+          id: p.id,
+          name: p.name,
+          subproject: p.subproject ?? undefined,
+          color: p.color,
+          isActive: p.is_active,
+        });
+      }
+
+      // Pull project_programs
+      const pgPrograms = await this.pg.getProjectPrograms();
+      for (const prog of pgPrograms) {
+        this.db.upsertProjectProgram({
+          id: prog.id,
+          projectId: prog.project_id,
+          processName: prog.process_name,
+          displayName: prog.display_name,
+        });
+      }
+
+      console.log(`[Sync] Pulled ${pgProjects.length} projects, ${pgPrograms.length} programs from PostgreSQL`);
+    } catch (err: any) {
+      console.error('[Sync] Pull from PostgreSQL failed:', err.message);
+    }
+  }
+
   getAvailableColors(): string[] {
     return USER_COLORS;
   }

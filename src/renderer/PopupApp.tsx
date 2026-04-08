@@ -8,22 +8,28 @@ const PopupApp: React.FC = () => {
     appName: string;
     processName: string;
   } | null>(null);
+  const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const appName = params.get('appName') || t('popupApp.unknownApp');
     const processName = params.get('processName') || '';
     setAppData({ appName, processName });
+
+    // Fetch local user so we can pass userId to startTracking
+    window.electron.getLocalUser().then(user => {
+      if (user?.id) setUserId(user.id);
+    }).catch(() => {});
   }, []);
 
   const handleSelect = async (projectId: string, appName: string, processName: string) => {
     try {
       await window.electron.startTracking({
+        userId,
         projectId,
         appName,
         processName,
       });
-      // Show main window so user can see the active timer and stop it
       window.electron.showMainWindow?.();
       window.close();
     } catch (error) {

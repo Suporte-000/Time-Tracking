@@ -115,10 +115,12 @@ class TimeTrackApp {
     // Initialize PostgreSQL + sync
     this.pg = new PostgresService();
     this.sync = new SyncService(this.pg, this.db);
-    this.pg.connect().then(ok => {
+    this.pg.connect().then(async ok => {
       if (ok) {
         console.log('[Postgres] Connected to Railway');
-        // Sync all today's entries immediately on connect
+        // Pull shared data (projects, programs) from PostgreSQL into local SQLite
+        await this.sync?.pullFromPostgres();
+        // Sync all today's entries up to PostgreSQL
         this.sync?.syncAllTodayEntries().catch(() => {});
       } else {
         console.warn('[Postgres] Failed to connect — check DATABASE_URL in .env');
@@ -559,36 +561,39 @@ class TimeTrackApp {
       return;
     }
 
+    // Don't show popup if there are no projects
+    const projects = this.db?.getProjects() || [];
+    if (projects.length === 0) {
+      console.log('No projects exist, skipping popup');
+      return;
+    }
+
     const isMinimized = !this.mainWindow || this.mainWindow.isMinimized() || !this.mainWindow.isVisible();
 
-    if (isMinimized && Notification.isSupported()) {
-      const notification = new Notification({
-        title: 'TimeTrack — App Detectado',
-        body: `Você está usando ${appName} há 2 minutos. Clique para vincular ao projeto.`,
-        silent: false,
-      });
+    if (isMinimized) {
+      const lang = this.db?.getConfig()?.language || 'en';
+      const notifText: Record<string, string> = {
+        'en': 'There is currently a program to track. Would you like to track it?',
+        'es': 'Hay un programa para rastrear. ¿Le gustaría rastrearlo?',
+        'pt-BR': 'Há um programa para rastrear. Gostaria de rastreá-lo?',
+      };
+      const body = notifText[lang] ?? notifText['en'];
 
-      notification.on('click', () => {
+      const showPopup = () => {
         this.mainWindow?.show();
         this.mainWindow?.focus();
         this.createPopupWindow(appName, processName);
-      });
+      };
 
-      // Also show balloon on Windows tray
+      // On Windows use tray balloon only (avoids duplicate with Notification)
       if (process.platform === 'win32' && this.tray) {
-        this.tray.displayBalloon({
-          title: 'TimeTrack — App Detectado',
-          content: `Você está usando ${appName} há 2 minutos. Clique para vincular.`,
-          iconType: 'info',
-        });
-        this.tray.once('balloon-click', () => {
-          this.mainWindow?.show();
-          this.mainWindow?.focus();
-          this.createPopupWindow(appName, processName);
-        });
+        this.tray.displayBalloon({ title: 'TimeTrack', content: body, iconType: 'info' });
+        this.tray.once('balloon-click', showPopup);
+      } else if (Notification.isSupported()) {
+        const notification = new Notification({ title: 'TimeTrack', body, silent: false });
+        notification.on('click', showPopup);
+        notification.show();
       }
-
-      notification.show();
       return;
     }
 
@@ -660,20 +665,41 @@ class TimeTrackApp {
       return this.db?.getProjects() || [];
     });
 
-    ipcMain.handle(IPC_CHANNELS.CREATE_PROJECT, (_, project) => {
-      return this.db?.createProject(project);
+    ipcMain.handle(IPC_CHANNELS.CREATE_PROJECT, async (_, project) => {
+      const created = this.db?.createProject(project);
+      if (created && this.pg?.isConnected()) {
+        this.pg.upsertProject(created).catch(e => console.warn('[Sync] project upsert failed:', e.message));
+      }
+      return created;
     });
 
-    ipcMain.handle(IPC_CHANNELS.UPDATE_PROJECT, (_, id: string, updates) => {
-      return this.db?.updateProject(id, updates);
+    ipcMain.handle(IPC_CHANNELS.UPDATE_PROJECT, async (_, id: string, updates) => {
+      const result = this.db?.updateProject(id, updates);
+      if (result && this.pg?.isConnected()) {
+        const projects = this.db?.getProjects() || [];
+        const p = projects.find((x: any) => x.id === id);
+        if (p) this.pg.upsertProject(p).catch(e => console.warn('[Sync] project update failed:', e.message));
+      }
+      return result;
     });
 
-    ipcMain.handle(IPC_CHANNELS.DELETE_PROJECT, (_, id: string) => {
-      return this.db?.deleteProject(id);
+    ipcMain.handle(IPC_CHANNELS.DELETE_PROJECT, async (_, id: string) => {
+      const result = this.db?.deleteProject(id);
+      if (result && this.pg?.isConnected()) {
+        this.pg.deleteProject(id).catch(e => console.warn('[Sync] project delete failed:', e.message));
+      }
+      return result;
     });
 
-    ipcMain.handle(IPC_CHANNELS.IMPORT_PROJECTS, (_, filePath: string) => {
-      return this.db?.importProjects(filePath);
+    ipcMain.handle(IPC_CHANNELS.IMPORT_PROJECTS, async (_, filePath: string) => {
+      const result = this.db?.importProjects(filePath);
+      if (this.pg?.isConnected()) {
+        const projects = this.db?.getProjects() || [];
+        for (const p of projects) {
+          this.pg.upsertProject(p).catch(() => {});
+        }
+      }
+      return result;
     });
 
     // Monitored Apps
@@ -826,12 +852,28 @@ class TimeTrackApp {
       return this.db?.getProjectPrograms(projectId) ?? [];
     });
 
-    ipcMain.handle(IPC_CHANNELS.ADD_PROJECT_PROGRAM, (_, projectId: string, processName: string, displayName: string) => {
-      return this.db?.addProjectProgram(projectId, processName, displayName);
+    ipcMain.handle(IPC_CHANNELS.ADD_PROJECT_PROGRAM, async (_, projectId: string, processName: string, displayName: string) => {
+      const result = this.db?.addProjectProgram(projectId, processName, displayName);
+      if (result && this.pg?.isConnected()) {
+        this.pg.upsertProjectProgram({
+          id: result.id,
+          project_id: projectId,
+          process_name: processName,
+          display_name: displayName,
+        }).catch(e => console.warn('[Sync] program upsert failed:', e.message));
+      }
+      return result;
     });
 
-    ipcMain.handle(IPC_CHANNELS.REMOVE_PROJECT_PROGRAM, (_, id: string) => {
-      return this.db?.removeProjectProgram(id);
+    ipcMain.handle(IPC_CHANNELS.REMOVE_PROJECT_PROGRAM, async (_, id: string) => {
+      // Get program details before deleting (for PG sync)
+      const programs = this.db?.getProjectPrograms() || [];
+      const prog = programs.find((p: any) => p.id === id);
+      const result = this.db?.removeProjectProgram(id);
+      if (result && prog && this.pg?.isConnected()) {
+        this.pg.deleteProjectProgram(id).catch(e => console.warn('[Sync] program delete failed:', e.message));
+      }
+      return result;
     });
 
     ipcMain.handle(IPC_CHANNELS.GET_POSTGRES_STATUS, () => {
