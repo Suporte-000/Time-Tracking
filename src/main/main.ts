@@ -8,50 +8,67 @@ import { PostgresService } from './services/postgresService';
 import { SyncService } from './services/syncService';
 import { IPC_CHANNELS } from '../shared/types';
 
-// Load .env — try multiple locations
-function loadEnv() {
-  // On first run of a packaged app, copy bundled .env to userData so user can edit it
-  const userDataEnv = path.join(app.getPath('userData'), '.env');
-  const bundledEnv = path.join(process.resourcesPath ?? '', '.env');
-  if (!fs.existsSync(userDataEnv) && fs.existsSync(bundledEnv)) {
-    try {
-      fs.copyFileSync(bundledEnv, userDataEnv);
-      console.log('[ENV] Copied bundled .env to userData:', userDataEnv);
-    } catch (e) {
-      console.warn('[ENV] Could not copy bundled .env:', e);
-    }
+function parseEnvFile(filePath: string) {
+  const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx < 0) continue;
+    const key = trimmed.substring(0, eqIdx).trim();
+    const val = trimmed.substring(eqIdx + 1).trim();
+    if (key) process.env[key] = val;
   }
+}
 
+// Phase 1: load .env from paths that don't need app.whenReady()
+function loadEnvEarly() {
   const candidates = [
-    path.join(app.getPath('userData'), '.env'),   // user-editable copy (highest priority)
     path.join(process.cwd(), '.env'),
     path.join(__dirname, '.env'),
     path.join(__dirname, '../.env'),
     path.join(__dirname, '../../.env'),
     path.join(__dirname, '../../../.env'),
     path.join(path.dirname(process.execPath), '.env'),
-    path.join(app.getAppPath(), '.env'),
-    bundledEnv,                                    // fallback: bundled resource
   ];
-  for (const envPath of candidates) {
-    if (fs.existsSync(envPath)) {
-      const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const eqIdx = trimmed.indexOf('=');
-        if (eqIdx < 0) continue;
-        const key = trimmed.substring(0, eqIdx).trim();
-        const val = trimmed.substring(eqIdx + 1).trim();
-        if (key) process.env[key] = val;
-      }
-      console.log('[ENV] Loaded from:', envPath);
+  for (const p of candidates) {
+    if (fs.existsSync(p)) { parseEnvFile(p); console.log('[ENV] Early-loaded from:', p); return; }
+  }
+}
+
+// Phase 2: load from userData / resources (requires app.whenReady)
+function loadEnvAfterReady() {
+  const userDataEnv = path.join(app.getPath('userData'), '.env');
+  const bundledEnv = path.join(process.resourcesPath || '', '.env');
+
+  // If userData .env doesn't exist, try to create it
+  if (!fs.existsSync(userDataEnv)) {
+    if (fs.existsSync(bundledEnv)) {
+      // Copy bundled .env to userData
+      try { fs.copyFileSync(bundledEnv, userDataEnv); console.log('[ENV] Copied bundled .env to userData'); } catch {}
+    } else {
+      // Create template so user knows where to put credentials
+      try {
+        fs.mkdirSync(path.dirname(userDataEnv), { recursive: true });
+        fs.writeFileSync(userDataEnv, '# TimeTrack configuration\nDATABASE_URL=\n');
+        console.log('[ENV] Created template .env at:', userDataEnv);
+      } catch {}
+    }
+  }
+
+  // Load from userData (highest priority) or bundled fallback
+  const candidates = [userDataEnv, bundledEnv, path.join(app.getAppPath(), '.env')];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      parseEnvFile(p);
+      console.log('[ENV] Loaded from:', p);
       break;
     }
   }
   console.log('[ENV] DATABASE_URL:', process.env.DATABASE_URL ? 'SET ✓' : 'NOT SET ✗');
 }
-loadEnv();
+
+loadEnvEarly();
 
 // ── Log file setup ──────────────────────────────────────────────────────────
 const LOG_PATH = path.join(app.getPath('userData'), 'timetrack.log');
@@ -78,6 +95,8 @@ class TimeTrackApp {
   private sync: SyncService | null = null;
   private popupTimers: Map<string, NodeJS.Timeout> = new Map();
   private currentActiveProcess: string | null = null;
+  private syncInterval: NodeJS.Timeout | null = null;
+  private processScanInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.init();
@@ -90,16 +109,29 @@ class TimeTrackApp {
     // Initialize database
     this.db = new DatabaseService();
 
-    // Re-load .env now that app is ready (userData path is valid)
-    loadEnv();
+    // Phase 2: load .env now that app is ready (userData + resourcesPath are valid)
+    loadEnvAfterReady();
 
     // Initialize PostgreSQL + sync
     this.pg = new PostgresService();
     this.sync = new SyncService(this.pg, this.db);
     this.pg.connect().then(ok => {
-      if (ok) console.log('[Postgres] Connected to Railway');
-      else console.warn('[Postgres] Failed to connect — check DATABASE_URL in .env');
+      if (ok) {
+        console.log('[Postgres] Connected to Railway');
+        // Sync all today's entries immediately on connect
+        this.sync?.syncAllTodayEntries().catch(() => {});
+      } else {
+        console.warn('[Postgres] Failed to connect — check DATABASE_URL in .env');
+      }
     }).catch(err => console.warn('[Postgres] Could not connect:', err.message));
+
+    // Sync all today's entries to PostgreSQL every 5 minutes
+    this.syncInterval = setInterval(() => {
+      if (this.pg?.isConnected()) {
+        console.log('[Sync] 5-minute sync triggered');
+        this.sync?.syncAllTodayEntries().catch(err => console.warn('[Sync] Error:', err));
+      }
+    }, 5 * 60 * 1000);
 
     // Apply start-with-Windows from saved config
     const savedConfig = this.db?.getConfig();
@@ -137,6 +169,29 @@ class TimeTrackApp {
       if (process.platform !== 'darwin') {
         app.quit();
       }
+    });
+
+    // Stop all active tracking when app quits
+    app.on('before-quit', async () => {
+      console.log('[App] Quitting — stopping all active tracking entries');
+      // Clear intervals
+      if (this.syncInterval) clearInterval(this.syncInterval);
+      if (this.processScanInterval) clearInterval(this.processScanInterval);
+      // Clear popup timers
+      for (const timer of this.popupTimers.values()) clearTimeout(timer);
+      this.popupTimers.clear();
+      // Stop all active entries
+      const entries = this.db?.getTimeEntries() || [];
+      const active = entries.filter(e => !e.endTime);
+      for (const entry of active) {
+        this.db?.stopTracking(entry.id, 'auto');
+        console.log(`[App] Auto-stopped tracking: ${entry.processName}`);
+      }
+      // Final sync
+      if (this.pg?.isConnected()) {
+        try { await this.sync?.syncAllTodayEntries(); } catch {}
+      }
+      await this.pg?.close();
     });
   }
 
@@ -362,6 +417,48 @@ class TimeTrackApp {
     // Auto-stop tracking when the tracked process exits
     if (process.platform === 'win32') {
       setInterval(() => this.checkTrackedProcessStillRunning(), 5000);
+    }
+
+    // Every 2 minutes: scan running processes for any registered programs
+    // and show popup if one is found and not already being tracked
+    this.processScanInterval = setInterval(() => this.scanRegisteredProcesses(), 2 * 60 * 1000);
+  }
+
+  private async scanRegisteredProcesses() {
+    if (process.platform !== 'win32') return;
+    try {
+      const registeredPrograms = this.db?.getProjectPrograms() || [];
+      if (registeredPrograms.length === 0) return;
+
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+      const { stdout } = await execAsync('tasklist /fo csv /nh', { timeout: 5000, windowsHide: true });
+      const running = new Set(
+        stdout.split(/\r?\n/)
+          .map((l: string) => l.split(',')[0]?.replace(/"/g, '').replace(/\.exe$/i, '').toLowerCase())
+          .filter(Boolean)
+      );
+
+      const activeEntries = this.db?.getTimeEntries() || [];
+      const activeProcesses = new Set(activeEntries.filter(e => !e.endTime).map(e => e.processName.toLowerCase()));
+
+      for (const prog of registeredPrograms) {
+        const key = prog.processName.toLowerCase();
+        if (!running.has(key)) continue;
+        if (activeProcesses.has(key)) continue;          // already tracked
+        if (this.popupTimers.has(prog.processName)) continue; // timer already pending
+
+        // Found a registered process running but not tracked — trigger popup immediately
+        console.log(`[Scan] Found registered process "${prog.processName}" running — showing popup`);
+        const linked = this.db?.getProjectByProcess(prog.processName);
+        if (linked) {
+          this.createPopupWindow(linked.displayName, prog.processName);
+          break; // show one popup at a time
+        }
+      }
+    } catch (err) {
+      console.warn('[Scan] scanRegisteredProcesses error:', err);
     }
   }
 

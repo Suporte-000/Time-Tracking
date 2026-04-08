@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AjustarModal from '../components/AjustarModal';
 import type { TeamMember, TeamTimeEntry, TeamAuditLog, LocalUserConfig } from '../../shared/types';
 import { useI18n } from '../i18nContext';
@@ -115,6 +115,22 @@ const AddProgramModal: React.FC<{
   const [displayName, setDisplayName] = useState('');
   const [processName, setProcessName] = useState('');
   const [err, setErr] = useState('');
+  const [runningApps, setRunningApps] = useState<{ processName: string; windowTitle: string }[]>([]);
+  const [loadingApps, setLoadingApps] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    window.electron.getRunningApps().then(apps => {
+      setRunningApps(apps);
+      setLoadingApps(false);
+    }).catch(() => setLoadingApps(false));
+  }, []);
+
+  function selectApp(app: { processName: string; windowTitle: string }) {
+    setProcessName(app.processName);
+    setDisplayName(app.windowTitle !== 'N/A' ? app.windowTitle : app.processName);
+    setErr('');
+  }
 
   function handleSave() {
     if (!displayName.trim()) { setErr(t('modal.displayNameRequired')); return; }
@@ -122,18 +138,54 @@ const AddProgramModal: React.FC<{
     onSave(processName.trim(), displayName.trim());
   }
 
+  const filtered = runningApps.filter(a =>
+    a.processName.toLowerCase().includes(search.toLowerCase()) ||
+    a.windowTitle.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
-      <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px 32px', width:'380px' }}>
+      <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px 32px', width:'420px' }}>
         <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'4px' }}>{t('modal.addProgram')}</div>
-        <div style={{ fontSize:'12px', color:'#718096', marginBottom:'20px' }}>{t('modal.linkedTo')}: {projectName}</div>
+        <div style={{ fontSize:'12px', color:'#718096', marginBottom:'16px' }}>{t('modal.linkedTo')}: {projectName}</div>
+
+        {/* Running apps picker */}
+        <label style={labelStyle}>Select Running Program</label>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search..."
+          style={{ ...inputStyle, marginBottom:'6px' }}
+        />
+        <div style={{ maxHeight:'160px', overflowY:'auto', marginBottom:'14px', border:'1px solid #1E2530', borderRadius:'7px' }}>
+          {loadingApps ? (
+            <div style={{ padding:'12px', color:'#4A5568', fontSize:'12px', textAlign:'center' }}>Loading...</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding:'12px', color:'#4A5568', fontSize:'12px', textAlign:'center' }}>No running apps found</div>
+          ) : filtered.map(app => (
+            <div key={app.processName} onClick={() => selectApp(app)}
+              style={{
+                padding:'8px 12px', cursor:'pointer', display:'flex', gap:'8px', alignItems:'center',
+                background: processName === app.processName ? '#1E2530' : 'transparent',
+                borderBottom:'1px solid #111722',
+              }}>
+              <span style={{ fontSize:'13px' }}>🖥️</span>
+              <div>
+                <div style={{ fontSize:'13px', color: processName === app.processName ? '#1FB8A0' : '#CBD5E0' }}>{app.processName}</div>
+                <div style={{ fontSize:'11px', color:'#4A5568' }}>{app.windowTitle}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Manual override */}
         <label style={labelStyle}>{t('modal.displayName')}</label>
-        <input value={displayName} onChange={e=>{setDisplayName(e.target.value);setErr('');}} placeholder="e.g. Google Chrome" autoFocus style={{ ...inputStyle, marginBottom:'14px' }} />
+        <input value={displayName} onChange={e=>{setDisplayName(e.target.value);setErr('');}} placeholder="e.g. Google Chrome" style={{ ...inputStyle, marginBottom:'10px' }} />
         <label style={labelStyle}>{t('modal.processName')}</label>
         <input value={processName} onChange={e=>{setProcessName(e.target.value);setErr('');}} placeholder="e.g. chrome"
           onKeyDown={e=>e.key==='Enter'&&handleSave()}
-          style={{ ...inputStyle, marginBottom:'6px' }} />
-        <div style={{ fontSize:'11px', color:'#4A5568', marginBottom:'18px' }}>{t('modal.processHint')}</div>
+          style={{ ...inputStyle, marginBottom:'16px' }} />
+
         {err && <div style={{ fontSize:'12px', color:'#FC8181', marginBottom:'10px' }}>{err}</div>}
         <div style={{ display:'flex', gap:'10px' }}>
           <button onClick={onClose} style={{ flex:1, padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer' }}>{t('common.cancel')}</button>
@@ -309,7 +361,7 @@ const Management: React.FC = () => {
     );
   }
 
-  const importRef = React.createRef<HTMLInputElement>();
+  const importRef = useRef<HTMLInputElement>(null);
 
   return (
     <div style={{ padding:'20px 24px', overflowY:'auto', height:'100%' }}>
@@ -343,8 +395,8 @@ const Management: React.FC = () => {
           </div>
         </div>
         <div style={{ display:'flex', gap:'10px' }}>
-          <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>🔒 {t('management.changePassword')}</button>
-          <button onClick={loadAll} className="btn" style={{ fontSize:'12px' }}>↻ {t('management.refresh')}</button>
+          <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>{t('management.changePassword')}</button>
+          <button onClick={loadAll} className="btn" style={{ fontSize:'12px' }}>{t('management.refresh')}</button>
         </div>
       </div>
 
@@ -356,7 +408,7 @@ const Management: React.FC = () => {
             background: tab===tabKey ? '#161C26' : 'transparent',
             color: tab===tabKey ? '#E2E8F0' : '#4A5568',
           }}>
-            {tabKey === 'projects' ? `📁 ${t('management.tabProjects')}` : `👥 ${t('management.tabTeam')}`}
+            {tabKey === 'projects' ? t('management.tabProjects') : t('management.tabTeam')}
           </button>
         ))}
       </div>
@@ -368,8 +420,8 @@ const Management: React.FC = () => {
         /* ── PROJECTS TAB ── */
         <div>
           <div style={{ display:'flex', gap:'10px', marginBottom:'16px' }}>
-            <button className="btn btn-primary" onClick={() => setShowProjectModal(true)}>+ {t('management.newProject')}</button>
-            <button className="btn" onClick={() => importRef.current?.click()}>⬆ {t('management.importCsv')}</button>
+            <button className="btn btn-primary" onClick={() => setShowProjectModal(true)}>{t('management.newProject')}</button>
+            <button className="btn" onClick={() => importRef.current?.click()}>{t('management.importCsv')}</button>
             <input ref={importRef} type="file" accept=".txt,.csv" style={{ display:'none' }} onChange={handleImportCSV} />
           </div>
 
