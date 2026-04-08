@@ -445,19 +445,37 @@ class TimeTrackApp {
       const activeEntries = this.db?.getTimeEntries() || [];
       const activeProcesses = new Set(activeEntries.filter(e => !e.endTime).map(e => e.processName.toLowerCase()));
 
+      const user = this.sync?.getLocalUser();
+      if (!user) return;
+
       for (const prog of registeredPrograms) {
         const key = prog.processName.toLowerCase();
         if (!running.has(key)) continue;
-        if (activeProcesses.has(key)) continue;          // already tracked
-        if (this.popupTimers.has(prog.processName)) continue; // timer already pending
+        if (activeProcesses.has(key)) continue;
+        if (this.popupTimers.has(prog.processName)) continue;
 
-        // Found a registered process running but not tracked — trigger popup immediately
-        console.log(`[Scan] Found registered process "${prog.processName}" running — showing popup`);
         const linked = this.db?.getProjectByProcess(prog.processName);
-        if (linked) {
-          this.createPopupWindow(linked.displayName, prog.processName);
-          break; // show one popup at a time
+        if (!linked) continue;
+
+        // Auto-start tracking immediately (no popup)
+        console.log(`[Scan] Auto-starting tracking for "${linked.projectName}" / "${prog.processName}"`);
+        const entry = this.db?.startTracking({
+          userId: user.id,
+          projectId: linked.projectId,
+          appName: linked.displayName,
+          processName: prog.processName,
+        });
+        if (entry) {
+          this.sync?.syncEntry(entry.id).catch(() => {});
+          if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+            this.mainWindow.webContents.send(IPC_CHANNELS.ACTIVE_WINDOW_CHANGED, {
+              processName: prog.processName,
+              windowTitle: linked.displayName,
+            });
+          }
+          this.showTrackingNotification();
         }
+        break; // one at a time
       }
     } catch (err) {
       console.warn('[Scan] scanRegisteredProcesses error:', err);
@@ -515,6 +533,10 @@ class TimeTrackApp {
       this.currentActiveProcess = processName;
     }
 
+    // Skip if no projects or no registered programs exist
+    if ((this.db?.getProjects() || []).length === 0) return;
+    if ((this.db?.getProjectPrograms() || []).length === 0) return;
+
     // Check if this process is registered by admin in project_programs
     const linked = this.db?.getProjectByProcess(processName);
     if (!linked) return;
@@ -534,17 +556,63 @@ class TimeTrackApp {
       return;
     }
 
-    // Set timer to show popup after continuous use
+    // Set timer to auto-start tracking after continuous use
     if (!this.popupTimers.has(processName)) {
       console.log(`Starting timer for ${linked.projectName} / ${processName} (${popupDelay / 1000}s)`);
 
       const timer = setTimeout(() => {
-        console.log(`Timer expired, showing popup for ${linked.projectName}`);
-        this.createPopupWindow(linked.displayName, processName);
         this.popupTimers.delete(processName);
+
+        // Re-check: still running and not already tracking
+        const entries = this.db?.getTimeEntries();
+        const stillTracking = entries?.some(e => e.processName === processName && !e.endTime);
+        if (stillTracking) return;
+
+        const user = this.sync?.getLocalUser();
+        if (!user) {
+          console.warn(`[AutoTrack] No local user — cannot auto-start tracking for ${linked.projectName}`);
+          return;
+        }
+
+        const entry = this.db?.startTracking({
+          userId: user.id,
+          projectId: linked.projectId,
+          appName: linked.displayName,
+          processName,
+        });
+
+        if (entry) {
+          console.log(`[AutoTrack] Auto-started tracking: ${linked.projectName} / ${processName}`);
+          this.sync?.syncEntry(entry.id).catch(() => {});
+          // Notify main window to refresh dashboard
+          if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+            this.mainWindow.webContents.send(IPC_CHANNELS.ACTIVE_WINDOW_CHANGED, {
+              processName,
+              windowTitle: linked.displayName,
+            });
+          }
+          // Show notification
+          this.showTrackingNotification();
+        }
       }, popupDelay);
 
       this.popupTimers.set(processName, timer);
+    }
+  }
+
+  private showTrackingNotification() {
+    const lang = this.db?.getConfig()?.language || 'en';
+    const messages: Record<string, string> = {
+      'en': 'We have started program tracking.',
+      'es': 'Hemos iniciado el seguimiento del programa.',
+      'pt-BR': 'Iniciamos o rastreamento do programa.',
+    };
+    const body = messages[lang] ?? messages['en'];
+
+    if (process.platform === 'win32' && this.tray) {
+      this.tray.displayBalloon({ title: 'TimeTrack', content: body, iconType: 'info' });
+    } else if (Notification.isSupported()) {
+      new Notification({ title: 'TimeTrack', body, silent: false }).show();
     }
   }
 
@@ -575,34 +643,6 @@ class TimeTrackApp {
       return;
     }
 
-    const isMinimized = !this.mainWindow || this.mainWindow.isMinimized() || !this.mainWindow.isVisible();
-
-    if (isMinimized) {
-      const lang = this.db?.getConfig()?.language || 'en';
-      const notifText: Record<string, string> = {
-        'en': 'There is currently a program to track. Would you like to track it?',
-        'es': 'Hay un programa para rastrear. ¿Le gustaría rastrearlo?',
-        'pt-BR': 'Há um programa para rastrear. Gostaria de rastreá-lo?',
-      };
-      const body = notifText[lang] ?? notifText['en'];
-
-      const showPopup = () => {
-        this.mainWindow?.show();
-        this.mainWindow?.focus();
-        this.createPopupWindow(appName, processName);
-      };
-
-      // On Windows use tray balloon only (avoids duplicate with Notification)
-      if (process.platform === 'win32' && this.tray) {
-        this.tray.displayBalloon({ title: 'TimeTrack', content: body, iconType: 'info' });
-        this.tray.once('balloon-click', showPopup);
-      } else if (Notification.isSupported()) {
-        const notification = new Notification({ title: 'TimeTrack', body, silent: false });
-        notification.on('click', showPopup);
-        notification.show();
-      }
-      return;
-    }
 
     const { workArea } = screen.getPrimaryDisplay();
     const popupWidth = 400;
@@ -946,7 +986,7 @@ class TimeTrackApp {
       return this.pg?.hasManagerPin() ?? false;
     });
 
-    ipcMain.handle(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, async (_, userId: string, userName: string) => {
+    ipcMain.handle(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, async (_, _userId: string, userName: string) => {
       if (!this.mainWindow) return null;
       const savePath = path.join(app.getPath('documents'), `timetrack-report-${userName.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.pdf`);
       const pdfData = await this.mainWindow.webContents.printToPDF({
