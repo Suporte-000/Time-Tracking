@@ -182,6 +182,61 @@ export class PostgresService {
         UNIQUE(project_id, process_name)
       );
     `);
+
+    // Add foreign key constraints (safe to run multiple times)
+    const fkQueries = [
+      // time_entries.user_id → users.id
+      `DO $$ BEGIN
+         ALTER TABLE time_entries ADD CONSTRAINT fk_time_entries_user
+           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+       EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+
+      // time_entries.project_id → projects.id
+      `DO $$ BEGIN
+         ALTER TABLE time_entries ADD CONSTRAINT fk_time_entries_project
+           FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL;
+       EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+
+      // time_entries.adjusted_by → users.id
+      `DO $$ BEGIN
+         ALTER TABLE time_entries ADD CONSTRAINT fk_time_entries_adjusted_by
+           FOREIGN KEY (adjusted_by) REFERENCES users(id) ON DELETE SET NULL;
+       EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+
+      // project_programs.project_id → projects.id
+      `DO $$ BEGIN
+         ALTER TABLE project_programs ADD CONSTRAINT fk_project_programs_project
+           FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE;
+       EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+
+      // audit_log.manager_id → users.id
+      `DO $$ BEGIN
+         ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_manager
+           FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL;
+       EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+
+      // audit_log.target_user_id → users.id
+      `DO $$ BEGIN
+         ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_target_user
+           FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE SET NULL;
+       EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+
+      // audit_log.time_entry_id → time_entries.id
+      `DO $$ BEGIN
+         ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_time_entry
+           FOREIGN KEY (time_entry_id) REFERENCES time_entries(id) ON DELETE CASCADE;
+       EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+
+      // projects.created_by → users.id
+      `DO $$ BEGIN
+         ALTER TABLE projects ADD CONSTRAINT fk_projects_created_by
+           FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+       EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+    ];
+
+    for (const q of fkQueries) {
+      await this.pool!.query(q).catch(e => console.warn('[Postgres] FK migration:', e.message));
+    }
     // Set default PIN (12345678) if none set
     const cfg = await this.pool!.query('SELECT pin_hash FROM manager_config WHERE id=1');
     if (!cfg.rows[0]?.pin_hash) {
