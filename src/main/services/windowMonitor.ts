@@ -33,6 +33,9 @@ if ($proc) {
 }
 `.trim();
 
+// Pre-encode the PowerShell script as Base64 (UTF-16LE) to avoid all quoting issues
+const PS_ENCODED = Buffer.from(PS_GET_FOREGROUND, 'utf16le').toString('base64');
+
 export class WindowMonitor extends EventEmitter {
   private intervalId: NodeJS.Timeout | null = null;
   private pollInterval: number = 1000;
@@ -63,7 +66,7 @@ export class WindowMonitor extends EventEmitter {
 
       if (process.platform === 'win32') {
         const { stdout } = await execAsync(
-          `powershell -NoProfile -NonInteractive -Command "${PS_GET_FOREGROUND.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+          `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_ENCODED}`,
           { timeout: 4000, windowsHide: true }
         );
 
@@ -108,7 +111,7 @@ export class WindowMonitor extends EventEmitter {
       if (process.platform !== 'win32') return null;
 
       const { stdout } = await execAsync(
-        `powershell -NoProfile -NonInteractive -Command "${PS_GET_FOREGROUND.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`,
+        `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_ENCODED}`,
         { timeout: 4000, windowsHide: true }
       );
 

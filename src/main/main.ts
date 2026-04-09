@@ -424,8 +424,9 @@ class TimeTrackApp {
     }
 
     // Every 2 minutes: scan running processes for any registered programs
-    // and show popup if one is found and not already being tracked
     this.processScanInterval = setInterval(() => this.scanRegisteredProcesses(), 2 * 60 * 1000);
+    // Also scan immediately on startup (don't wait 2 minutes)
+    setTimeout(() => this.scanRegisteredProcesses(), 5000);
   }
 
   private async scanRegisteredProcesses() {
@@ -536,12 +537,21 @@ class TimeTrackApp {
     }
 
     // Skip if no projects or no registered programs exist
-    if ((this.db?.getProjects() || []).length === 0) return;
-    if ((this.db?.getProjectPrograms() || []).length === 0) return;
+    if ((this.db?.getProjects() || []).length === 0) {
+      console.log(`[AutoTrack] Skipped "${processName}": no active projects in SQLite`);
+      return;
+    }
+    if ((this.db?.getProjectPrograms() || []).length === 0) {
+      console.log(`[AutoTrack] Skipped "${processName}": no registered programs in SQLite`);
+      return;
+    }
 
     // Check if this process is registered by admin in project_programs
     const linked = this.db?.getProjectByProcess(processName);
-    if (!linked) return;
+    if (!linked) {
+      console.log(`[AutoTrack] Skipped "${processName}": not registered in any project`);
+      return;
+    }
 
     // Get config to check popup delay
     const config = this.db?.getConfig();
