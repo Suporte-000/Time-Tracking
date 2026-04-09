@@ -380,7 +380,7 @@ export class PostgresService {
          WHERE id=$7`,
         [
           data.newStartTime, data.newEndTime, newDuration,
-          data.newProjectId, data.managerName, data.motive, data.entryId,
+          data.newProjectId, data.managerId, data.motive, data.entryId,
         ]
       );
 
