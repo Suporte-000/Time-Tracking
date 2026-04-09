@@ -327,26 +327,20 @@ const Management: React.FC = () => {
     window.electron.getLocalUser().then(setLocalUser);
   }, []);
 
-  // Full sync (page enter + manual refresh): push → pull in parallel → load all
   useEffect(() => {
     if (pinVerified) loadAll(selectedDate, true);
   }, [pinVerified]);
 
-  // Date change: only reload entries + audit log, no sync needed
   useEffect(() => {
     if (pinVerified) loadDateData(selectedDate);
   }, [selectedDate]);
 
+  const [syncing, setSyncing] = useState(false);
+
   const loadAll = async (date: string = selectedDate, sync = false) => {
+    // Step 1: Load from SQLite cache immediately (fast — no network)
     setLoading(true);
     try {
-      if (sync && pgConnected) {
-        // Push and pull in parallel — they touch different tables
-        await Promise.all([
-          window.electron.pushToPostgres(),
-          window.electron.pullFromPostgres(),
-        ]);
-      }
       const [proj, prog, m, entries, audit] = await Promise.all([
         window.electron.getProjects(),
         window.electron.getProjectPrograms(),
@@ -360,9 +354,32 @@ const Management: React.FC = () => {
       setTeamEntries(entries);
       setAuditLog(audit);
     } finally { setLoading(false); }
+
+    // Step 2: Sync with PostgreSQL in the background (slow — network)
+    if (sync && pgConnected) {
+      setSyncing(true);
+      try {
+        await Promise.all([
+          window.electron.pushToPostgres(),
+          window.electron.pullFromPostgres(),
+        ]);
+        // Silently refresh data after sync completes
+        const [proj, prog, m, entries, audit] = await Promise.all([
+          window.electron.getProjects(),
+          window.electron.getProjectPrograms(),
+          window.electron.getTeamMembers(),
+          window.electron.getTeamEntries(date),
+          window.electron.getAuditLog(date),
+        ]);
+        setProjects(proj);
+        setPrograms(prog);
+        setMembers(m);
+        setTeamEntries(entries);
+        setAuditLog(audit);
+      } finally { setSyncing(false); }
+    }
   };
 
-  // Only refresh time-based data when date changes (no full sync)
   const loadDateData = async (date: string) => {
     setLoading(true);
     try {
@@ -509,7 +526,10 @@ const Management: React.FC = () => {
             ↓ {t('management.weeklyReport')}
           </button>
           <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>{t('management.changePassword')}</button>
-          <button onClick={() => loadAll(selectedDate, true)} className="btn" style={{ fontSize:'12px' }}>↻</button>
+          <button onClick={() => loadAll(selectedDate, true)} className="btn" style={{ fontSize:'12px' }} title="Refresh & sync">
+            <span style={{ display:'inline-block', animation: syncing ? 'spin 1s linear infinite' : 'none' }}>↻</span>
+          </button>
+          {syncing && <span style={{ fontSize:'11px', color:'#4A5568' }}>sync...</span>}
         </div>
       </div>
 
