@@ -483,7 +483,7 @@ const Management: React.FC = () => {
   }
 
   return (
-    <div style={{ padding:'20px 24px', overflowY:'auto', height:'100%' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
 
       {/* Modals */}
       {showChangePin && <ChangePinModal onClose={() => setShowChangePin(false)} />}
@@ -513,38 +513,59 @@ const Management: React.FC = () => {
         />
       )}
 
-      {/* Header */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'20px' }}>
-        <div>
-          <div style={{ fontSize:'22px', fontWeight:700, color:'#E2E8F0' }}>{t('management.title')}</div>
-          <div style={{ fontSize:'12px', color:'#718096', marginTop:'4px' }}>
-            {t('management.subtitle')} · {t('management.today')}, {formatDatePT(new Date())}
+      {/* ── Sticky header ── */}
+      <div style={{ flexShrink:0, padding:'20px 24px 0', background:'#0B0F17', borderBottom:'1px solid #1A1F2B' }}>
+
+        {/* Title row */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'16px' }}>
+          <div>
+            <div style={{ fontSize:'22px', fontWeight:700, color:'#E2E8F0' }}>{t('management.title')}</div>
+            <div style={{ fontSize:'12px', color:'#718096', marginTop:'4px' }}>
+              {t('management.subtitle')} · {t('management.today')}, {formatDatePT(new Date())}
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:'10px', alignItems:'center' }}>
+            <button onClick={() => localUser && window.electron.exportWeeklyReport(localUser.id, localUser.name, selectedDate)} className="btn btn-primary" style={{ fontSize:'12px' }}>
+              ↓ {t('management.weeklyReport')}
+            </button>
+            <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>{t('management.changePassword')}</button>
+            <button onClick={() => loadAll(selectedDate, true)} className="btn" style={{ fontSize:'12px' }} title="Refresh & sync">
+              <span style={{ display:'inline-block', animation: syncing ? 'spin 1s linear infinite' : 'none' }}>↻</span>
+            </button>
+            {syncing && <span style={{ fontSize:'11px', color:'#4A5568' }}>sync...</span>}
           </div>
         </div>
-        <div style={{ display:'flex', gap:'10px', alignItems:'center' }}>
-          <button onClick={() => localUser && window.electron.exportWeeklyReport(localUser.id, localUser.name, selectedDate)} className="btn btn-primary" style={{ fontSize:'12px' }}>
-            ↓ {t('management.weeklyReport')}
-          </button>
-          <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>{t('management.changePassword')}</button>
-          <button onClick={() => loadAll(selectedDate, true)} className="btn" style={{ fontSize:'12px' }} title="Refresh & sync">
-            <span style={{ display:'inline-block', animation: syncing ? 'spin 1s linear infinite' : 'none' }}>↻</span>
-          </button>
-          {syncing && <span style={{ fontSize:'11px', color:'#4A5568' }}>sync...</span>}
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:'4px', marginBottom:'20px', background:'#0A0E14', borderRadius:'10px', padding:'4px', width:'fit-content' }}>
-        {(['projects','team'] as const).map(tabKey => (
-          <button key={tabKey} onClick={() => setTab(tabKey)} style={{
-            padding:'7px 20px', borderRadius:'7px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:600,
-            background: tab===tabKey ? '#161C26' : 'transparent',
-            color: tab===tabKey ? '#E2E8F0' : '#4A5568',
-          }}>
-            {tabKey === 'projects' ? t('management.tabProjects') : t('management.tabTeam')}
-          </button>
-        ))}
-      </div>
+        {/* Tabs + Date picker row */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'16px' }}>
+          <div style={{ display:'flex', gap:'4px', background:'#0A0E14', borderRadius:'10px', padding:'4px', width:'fit-content' }}>
+            {(['projects','team'] as const).map(tabKey => (
+              <button key={tabKey} onClick={() => setTab(tabKey)} style={{
+                padding:'7px 20px', borderRadius:'7px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:600,
+                background: tab===tabKey ? '#161C26' : 'transparent',
+                color: tab===tabKey ? '#E2E8F0' : '#4A5568',
+              }}>
+                {tabKey === 'projects' ? t('management.tabProjects') : t('management.tabTeam')}
+              </button>
+            ))}
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+            <button onClick={() => shiftDate(-1)} style={{ padding:'5px 12px', background:'#161C26', border:'1px solid #1E2530', borderRadius:'7px', color:'#A0AEC0', cursor:'pointer', fontSize:'14px' }}>‹</button>
+            <input type="date" value={selectedDate} max={today} onChange={e => setSelectedDate(e.target.value)}
+              style={{ padding:'5px 10px', background:'#161C26', border:'1px solid #1E2530', borderRadius:'7px', color:'#E2E8F0', fontSize:'13px', outline:'none', cursor:'pointer' }} />
+            <button onClick={() => shiftDate(1)} disabled={selectedDate >= today} style={{ padding:'5px 12px', background:'#161C26', border:'1px solid #1E2530', borderRadius:'7px', color: selectedDate >= today ? '#2D3748' : '#A0AEC0', cursor: selectedDate >= today ? 'not-allowed' : 'pointer', fontSize:'14px' }}>›</button>
+            {selectedDate !== today && (
+              <button onClick={() => setSelectedDate(today)} style={{ padding:'5px 10px', background:'transparent', border:'1px solid #1E2530', borderRadius:'7px', color:'#1FB8A0', cursor:'pointer', fontSize:'12px' }}>
+                {t('management.today')}
+              </button>
+            )}
+          </div>
+        </div>
+
+      </div>{/* end sticky header */}
+
+      {/* ── Scrollable content ── */}
+      <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
 
       {loading ? (
         <div style={{ color:'#4A5568', textAlign:'center', padding:'40px' }}>{t('common.loading')}</div>
@@ -597,24 +618,6 @@ const Management: React.FC = () => {
 
         /* ── TEAM TAB ── */
         <div>
-          {/* Date navigation */}
-          <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'16px' }}>
-            <button onClick={() => shiftDate(-1)} style={{ padding:'5px 12px', background:'#161C26', border:'1px solid #1E2530', borderRadius:'7px', color:'#A0AEC0', cursor:'pointer', fontSize:'14px' }}>‹</button>
-            <input
-              type="date"
-              value={selectedDate}
-              max={today}
-              onChange={e => setSelectedDate(e.target.value)}
-              style={{ padding:'5px 10px', background:'#161C26', border:'1px solid #1E2530', borderRadius:'7px', color:'#E2E8F0', fontSize:'13px', outline:'none', cursor:'pointer' }}
-            />
-            <button onClick={() => shiftDate(1)} disabled={selectedDate >= today} style={{ padding:'5px 12px', background:'#161C26', border:'1px solid #1E2530', borderRadius:'7px', color: selectedDate >= today ? '#2D3748' : '#A0AEC0', cursor: selectedDate >= today ? 'not-allowed' : 'pointer', fontSize:'14px' }}>›</button>
-            {selectedDate !== today && (
-              <button onClick={() => setSelectedDate(today)} style={{ padding:'5px 10px', background:'transparent', border:'1px solid #1E2530', borderRadius:'7px', color:'#1FB8A0', cursor:'pointer', fontSize:'12px' }}>
-                {t('management.today')}
-              </button>
-            )}
-          </div>
-
           {/* Manual adjustments alert */}
           {auditLog.length > 0 && (
             <div style={{ background:'#2A1A0A', border:'1px solid #C05621', borderRadius:'10px', padding:'12px 16px', marginBottom:'20px', fontSize:'13px', color:'#F6AD55', display:'flex', alignItems:'center', gap:'8px' }}>
@@ -711,6 +714,7 @@ const Management: React.FC = () => {
           )}
         </div>
       )}
+      </div>{/* end scrollable content */}
     </div>
   );
 };

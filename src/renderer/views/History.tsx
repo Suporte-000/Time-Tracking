@@ -90,47 +90,55 @@ const History: React.FC = () => {
   const linkedPct = timeEntries.length > 0 ? Math.round((linkedCount / timeEntries.length) * 100) : 0;
 
   return (
-    <div style={{ padding: '24px 28px', height: '100%', overflowY: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: '#E2E8F0' }}>{t('history.title')}</h2>
-          <div style={{ fontSize: '13px', color: '#718096', marginTop: '4px' }}>{t('history.subtitle')}</div>
-        </div>
-        <button onClick={handleExportCSV} disabled={timeEntries.length === 0}
-          style={{ padding: '9px 18px', background: timeEntries.length > 0 ? '#1FB8A0' : '#1E2A3A', border: 'none', borderRadius: '8px', color: timeEntries.length > 0 ? '#fff' : '#4A5568', fontSize: '13px', fontWeight: '600', cursor: timeEntries.length > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          ⬇ {t('history.exportCsv')}
-        </button>
-      </div>
+      {/* ── Sticky header ── */}
+      <div style={{ flexShrink: 0, padding: '24px 28px 0', background: '#0B0F17', borderBottom: '1px solid #1A1F2B' }}>
 
-      {/* Date tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        {dateTabs.map(date => {
-          const active = date === selectedDate;
-          return (
-            <button key={date} onClick={() => setSelectedDate(date)}
-              style={{ padding: '8px 16px', borderRadius: '20px', border: `1px solid ${active ? '#1FB8A0' : '#1E2A3A'}`, background: active ? '#1FB8A0' : 'transparent', color: active ? '#fff' : '#A0AEC0', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', transition: 'all 0.15s' }}>
-              {formatTabLabel(date)}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
-        {[
-          { label: t('history.totalTime'), value: formatDuration(totalSecs), color: '#4ade80' },
-          { label: t('history.projects'),  value: String(projectCount),       color: '#E2E8F0' },
-          { label: t('history.entries'),   value: String(timeEntries.length), color: '#E2E8F0' },
-          { label: t('history.linked'),    value: `${linkedPct}%`,            color: '#1FB8A0' },
-        ].map(kpi => (
-          <div key={kpi.label} style={{ padding: '18px 20px', background: '#161C26', borderRadius: '12px', border: '1px solid #1E2A3A' }}>
-            <div style={{ fontSize: '11px', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '8px' }}>{kpi.label}</div>
-            <div style={{ fontSize: '26px', fontWeight: '700', color: kpi.color }}>{kpi.value}</div>
+        {/* Title row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: '#E2E8F0' }}>{t('history.title')}</h2>
+            <div style={{ fontSize: '13px', color: '#718096', marginTop: '4px' }}>{t('history.subtitle')}</div>
           </div>
-        ))}
-      </div>
+          <button onClick={handleExportCSV} disabled={timeEntries.length === 0}
+            style={{ padding: '9px 18px', background: timeEntries.length > 0 ? '#1FB8A0' : '#1E2A3A', border: 'none', borderRadius: '8px', color: timeEntries.length > 0 ? '#fff' : '#4A5568', fontSize: '13px', fontWeight: '600', cursor: timeEntries.length > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            ⬇ {t('history.exportCsv')}
+          </button>
+        </div>
+
+        {/* Date tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          {dateTabs.map(date => {
+            const active = date === selectedDate;
+            return (
+              <button key={date} onClick={() => setSelectedDate(date)}
+                style={{ padding: '8px 16px', borderRadius: '20px', border: `1px solid ${active ? '#1FB8A0' : '#1E2A3A'}`, background: active ? '#1FB8A0' : 'transparent', color: active ? '#fff' : '#A0AEC0', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', transition: 'all 0.15s' }}>
+                {formatTabLabel(date)}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* KPI cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+          {[
+            { label: t('history.totalTime'), value: formatDuration(totalSecs), color: '#4ade80' },
+            { label: t('history.projects'),  value: String(projectCount),       color: '#E2E8F0' },
+            { label: t('history.entries'),   value: String(timeEntries.length), color: '#E2E8F0' },
+            { label: t('history.linked'),    value: `${linkedPct}%`,            color: '#1FB8A0' },
+          ].map(kpi => (
+            <div key={kpi.label} style={{ padding: '18px 20px', background: '#161C26', borderRadius: '12px', border: '1px solid #1E2A3A' }}>
+              <div style={{ fontSize: '11px', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '8px' }}>{kpi.label}</div>
+              <div style={{ fontSize: '26px', fontWeight: '700', color: kpi.color }}>{kpi.value}</div>
+            </div>
+          ))}
+        </div>
+
+      </div>{/* end sticky header */}
+
+      {/* ── Scrollable content ── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
 
       {/* Table */}
       <div style={{ background: '#161C26', borderRadius: '12px', border: '1px solid #1E2A3A', overflow: 'hidden' }}>
@@ -199,6 +207,7 @@ const History: React.FC = () => {
           })
         )}
       </div>
+      </div>{/* end scrollable content */}
     </div>
   );
 };
