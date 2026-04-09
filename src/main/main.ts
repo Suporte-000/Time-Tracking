@@ -848,9 +848,8 @@ class TimeTrackApp {
       }
     });
 
-    ipcMain.on(IPC_CHANNELS.SHOW_POPUP, (_, appName: string, processName: string) => {
-      this.createPopupWindow(appName || '', processName || '');
-    });
+    // Popup window is disabled — tracking starts automatically
+    // ipcMain.on(IPC_CHANNELS.SHOW_POPUP, ...)
 
     // Renderer log — writes renderer-side messages to the log file
     ipcMain.on(IPC_CHANNELS.RENDERER_LOG, (_, level: string, message: string) => {
