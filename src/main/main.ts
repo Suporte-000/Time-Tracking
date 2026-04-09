@@ -99,6 +99,23 @@ class TimeTrackApp {
   private processScanInterval: NodeJS.Timeout | null = null;
 
   constructor() {
+    // Single instance lock — if another instance is already running, focus it and quit this one
+    const gotLock = app.requestSingleInstanceLock();
+    if (!gotLock) {
+      console.log('[App] Another instance is already running. Quitting.');
+      app.quit();
+      return;
+    }
+
+    // When a second instance tries to launch, bring the existing window to front
+    app.on('second-instance', () => {
+      if (this.mainWindow) {
+        if (this.mainWindow.isMinimized()) this.mainWindow.restore();
+        if (!this.mainWindow.isVisible()) this.mainWindow.show();
+        this.mainWindow.focus();
+      }
+    });
+
     this.init();
   }
 

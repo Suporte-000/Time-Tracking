@@ -87,7 +87,11 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "TimeTrack",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "createUninstaller": true,
+      "uninstallDisplayName": "TimeTrack",
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico"
     }
   }
 }
