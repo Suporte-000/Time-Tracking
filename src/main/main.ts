@@ -137,15 +137,15 @@ class TimeTrackApp {
       }
     }, 5 * 60 * 1000);
 
-    // Apply start-with-Windows from saved config
+    // Always register auto-start with Windows (openAtLogin driven by config)
     const savedConfig = this.db?.getConfig();
-    if (savedConfig) {
-      app.setLoginItemSettings({
-        openAtLogin: savedConfig.startWithWindows,
-        openAsHidden: true,
-        name: 'TimeTrack',
-      });
-    }
+    const startWithWindows = savedConfig?.startWithWindows ?? true;
+    app.setLoginItemSettings({
+      openAtLogin: startWithWindows,
+      openAsHidden: true,
+      name: 'TimeTrack',
+    });
+    console.log(`[App] Start with Windows: ${startWithWindows}`);
 
     // Create main window
     // Remove default menu bar (File/Edit/View/Window/Help)
@@ -613,7 +613,10 @@ class TimeTrackApp {
   }
 
   private showTrackingNotification() {
-    const lang = this.db?.getConfig()?.language || 'en';
+    const config = this.db?.getConfig();
+    if (!config?.showNotifications) return; // respect the toggle
+
+    const lang = config?.language || 'en';
     const messages: Record<string, string> = {
       'en': 'We have started program tracking.',
       'es': 'Hemos iniciado el seguimiento del programa.',
@@ -779,15 +782,28 @@ class TimeTrackApp {
 
     ipcMain.handle(IPC_CHANNELS.UPDATE_CONFIG, (_, config) => {
       const result = this.db?.updateConfig(config);
-      // Apply start-with-Windows setting immediately
+
+      // Start with Windows
       if (config.startWithWindows !== undefined) {
         app.setLoginItemSettings({
           openAtLogin: config.startWithWindows,
           openAsHidden: true,
           name: 'TimeTrack',
         });
-        console.log(`[App] Start with Windows: ${config.startWithWindows}`);
+        console.log(`[Config] Start with Windows: ${config.startWithWindows}`);
       }
+
+      // Minimize to tray: ensure tray icon exists when enabled
+      if (config.minimizeToTray === true && !this.tray) {
+        this.createTray();
+        console.log('[Config] Tray created (minimizeToTray enabled)');
+      }
+
+      // Discrete notifications: no extra action needed — showTrackingNotification reads config on each call
+      if (config.showNotifications !== undefined) {
+        console.log(`[Config] Notifications: ${config.showNotifications}`);
+      }
+
       return result;
     });
 
@@ -900,9 +916,14 @@ class TimeTrackApp {
       }
     });
 
-    // Close hides to tray — does NOT quit the app
+    // Close: hide to tray if minimizeToTray is enabled, otherwise quit
     ipcMain.on(IPC_CHANNELS.WINDOW_CLOSE, () => {
-      this.mainWindow?.hide();
+      const cfg = this.db?.getConfig();
+      if (cfg?.minimizeToTray ?? true) {
+        this.mainWindow?.hide();
+      } else {
+        app.quit();
+      }
     });
 
     // ── Team / PostgreSQL handlers ────────────────────────────────────────────

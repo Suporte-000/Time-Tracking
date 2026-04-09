@@ -8,7 +8,6 @@ import type {
   TimeEntry,
   SystemConfig,
   AppSuggestion,
-  AuditLogEntry,
 } from '../../shared/types';
 
 /**
@@ -147,10 +146,15 @@ export class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_project_programs_processName ON project_programs(processName);
     `);
 
-    // Migrate: add language column if missing (existing databases)
+    // Migrate: add language column if missing
     try {
       this.db.exec(`ALTER TABLE config ADD COLUMN language TEXT NOT NULL DEFAULT 'en'`);
     } catch { /* column already exists */ }
+
+    // Migrate: enable startWithWindows for existing installs
+    try {
+      this.db.exec(`UPDATE config SET startWithWindows = 1 WHERE id = 1 AND startWithWindows = 0`);
+    } catch { /* ignore */ }
 
     console.log('Database tables initialized');
   }
@@ -165,7 +169,7 @@ export class DatabaseService {
       this.db
         .prepare(
           `INSERT INTO config (id, inactivityTimeout, popupDelay, popupAutoClose, backupInterval, startWithWindows, minimizeToTray, showNotifications)
-           VALUES (1, 5, 2, 30, 60, 0, 1, 0)`
+           VALUES (1, 5, 2, 30, 60, 1, 1, 0)`
         )
         .run();
       console.log('Default config created');
@@ -196,11 +200,6 @@ export class DatabaseService {
 
       console.log('Default monitored apps created');
     }
-
-    // Check if projects exist
-    const projectsCount = this.db.prepare('SELECT COUNT(*) as count FROM projects').get() as {
-      count: number;
-    };
 
     // No default projects — user creates their own
   }
