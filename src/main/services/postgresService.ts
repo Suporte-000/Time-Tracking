@@ -256,6 +256,15 @@ export class PostgresService {
     return res.rows;
   }
 
+  async getTeamMemberByName(name: string): Promise<TeamMember | null> {
+    if (!this.connected) return null;
+    const res = await this.pool!.query(
+      'SELECT * FROM users WHERE LOWER(name) = LOWER($1) LIMIT 1',
+      [name]
+    );
+    return res.rows[0] ?? null;
+  }
+
   async addTeamMember(member: Omit<TeamMember, 'created_at'>): Promise<TeamMember> {
     const res = await this.pool!.query(
       `INSERT INTO users (id, name, initials, color, goal_hours)

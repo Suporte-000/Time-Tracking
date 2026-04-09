@@ -57,8 +57,33 @@ export class SyncService {
   }
 
   async saveLocalUser(config: Omit<LocalUserConfig, 'id'> & { id?: string }): Promise<LocalUserConfig> {
+    let resolvedId = config.id;
+
+    // If no ID provided (e.g. user-config.json was deleted), try to recover from PostgreSQL by name
+    if (!resolvedId && this.pg.isConnected()) {
+      try {
+        const existing = await this.pg.getTeamMemberByName(config.name);
+        if (existing) {
+          resolvedId = existing.id;
+          console.log(`[SyncService] Recovered existing user ID from PostgreSQL for "${config.name}": ${resolvedId}`);
+        }
+      } catch (e: any) {
+        console.warn('[SyncService] Could not query PostgreSQL for user recovery:', e.message);
+      }
+    }
+
+    // Also try to recover from local SQLite team_members table
+    if (!resolvedId) {
+      const localMembers = this.db.getTeamMembers();
+      const found = localMembers.find((m: any) => m.name.toLowerCase() === config.name.toLowerCase());
+      if (found) {
+        resolvedId = found.id;
+        console.log(`[SyncService] Recovered existing user ID from SQLite for "${config.name}": ${resolvedId}`);
+      }
+    }
+
     const user: LocalUserConfig = {
-      id: config.id || generateId(),
+      id: resolvedId || generateId(),
       name: config.name,
       initials: config.initials || getInitials(config.name),
       color: config.color || USER_COLORS[0],
@@ -67,7 +92,16 @@ export class SyncService {
     fs.writeFileSync(this.configPath, JSON.stringify(user, null, 2));
     this.localUser = user;
 
-    // Register in PostgreSQL
+    // 1. Save to SQLite
+    this.db.upsertTeamMember({
+      id: user.id,
+      name: user.name,
+      initials: user.initials,
+      color: user.color,
+      goal_hours: user.goalHours,
+    });
+
+    // 2. Sync to PostgreSQL
     if (this.pg.isConnected()) {
       await this.pg.addTeamMember({
         id: user.id,
@@ -110,10 +144,15 @@ export class SyncService {
     try {
       const today = new Date().toISOString().split('T')[0];
       const entries = this.db.getTimeEntries(today);
+      const now = Date.now();
       for (const entry of entries) {
-        await this.pg.upsertTimeEntry(entry, user.id);
+        // For active (running) entries, compute live duration before syncing
+        const liveEntry = !entry.endTime
+          ? { ...entry, duration: Math.floor((now - new Date(entry.startTime).getTime()) / 1000) }
+          : entry;
+        await this.pg.upsertTimeEntry(liveEntry, user.id);
       }
-      console.log(`[Sync] Synced ${entries.length} entries`);
+      console.log(`[Sync] Synced ${entries.length} entries (${entries.filter(e => !e.endTime).length} active)`);
     } catch (err: any) {
       console.error('[Sync] Sync failed:', err.message);
     }
@@ -129,6 +168,35 @@ export class SyncService {
       console.log(`[Sync] Synced ${projects.length} projects`);
     } catch (err: any) {
       console.error('[Sync] Project sync failed:', err.message);
+    }
+  }
+
+  // Restore user-config.json from PostgreSQL if it was deleted but SQLite team_members has the user
+  async tryRestoreLocalUser(): Promise<void> {
+    if (!this.isFirstRun()) return; // file already exists, nothing to restore
+    if (!this.pg.isConnected()) return;
+
+    try {
+      // Check SQLite for a known local user (may exist if only JSON was deleted)
+      const localMembers = this.db.getTeamMembers();
+      if (localMembers.length === 1) {
+        // Only one member in SQLite — assume it's the local user
+        const m = localMembers[0];
+        const pgMember = await this.pg.getTeamMemberByName(m.name);
+        const id = pgMember?.id ?? m.id;
+        const restored: LocalUserConfig = {
+          id,
+          name: m.name,
+          initials: m.initials,
+          color: m.color,
+          goalHours: m.goal_hours,
+        };
+        fs.writeFileSync(this.configPath, JSON.stringify(restored, null, 2));
+        this.localUser = restored;
+        console.log(`[SyncService] Restored user-config.json for "${m.name}" with ID: ${id}`);
+      }
+    } catch (e: any) {
+      console.warn('[SyncService] Could not restore local user:', e.message);
     }
   }
 
@@ -159,7 +227,19 @@ export class SyncService {
         });
       }
 
-      console.log(`[Sync] Pulled ${pgProjects.length} projects, ${pgPrograms.length} programs from PostgreSQL`);
+      // Pull team members
+      const pgMembers = await this.pg.getTeamMembers();
+      for (const m of pgMembers) {
+        this.db.upsertTeamMember({
+          id: m.id,
+          name: m.name,
+          initials: m.initials,
+          color: m.color,
+          goal_hours: m.goal_hours,
+        });
+      }
+
+      console.log(`[Sync] Pulled ${pgProjects.length} projects, ${pgPrograms.length} programs, ${pgMembers.length} members from PostgreSQL`);
     } catch (err: any) {
       console.error('[Sync] Pull from PostgreSQL failed:', err.message);
     }

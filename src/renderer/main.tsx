@@ -61,6 +61,8 @@ declare global {
       getProjectPrograms: (projectId?: string) => Promise<any[]>;
       addProjectProgram: (projectId: string, processName: string, displayName: string) => Promise<any>;
       removeProjectProgram: (id: string) => Promise<boolean>;
+      pullFromPostgres: () => Promise<boolean>;
+      pushToPostgres: () => Promise<boolean>;
     };
   }
 }

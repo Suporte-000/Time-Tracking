@@ -126,6 +126,18 @@ export class DatabaseService {
       )
     `);
 
+    // Team members table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS team_members (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        initials TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#14919B',
+        goal_hours REAL NOT NULL DEFAULT 8.0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+
     // Create indexes for performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_time_entries_userId ON time_entries(userId);
@@ -542,6 +554,25 @@ export class DatabaseService {
 
   removeProjectProgram(id: string): boolean {
     return this.db.prepare('DELETE FROM project_programs WHERE id = ?').run(id).changes > 0;
+  }
+
+  // ==================== TEAM MEMBERS ====================
+
+  getTeamMembers(): any[] {
+    return this.db.prepare('SELECT * FROM team_members ORDER BY name').all();
+  }
+
+  upsertTeamMember(member: { id: string; name: string; initials: string; color: string; goal_hours: number }): void {
+    this.db.prepare(`
+      INSERT INTO team_members (id, name, initials, color, goal_hours)
+      VALUES (@id, @name, @initials, @color, @goal_hours)
+      ON CONFLICT(id) DO UPDATE SET name=@name, initials=@initials, color=@color, goal_hours=@goal_hours
+    `).run(member);
+  }
+
+  deleteTeamMember(id: string): boolean {
+    const result = this.db.prepare('DELETE FROM team_members WHERE id = ?').run(id);
+    return result.changes > 0;
   }
 
   // ==================== HELPERS ====================

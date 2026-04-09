@@ -182,6 +182,12 @@ const api = {
 
   removeProjectProgram: (id: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.REMOVE_PROJECT_PROGRAM, id),
+
+  pullFromPostgres: (): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PULL_FROM_POSTGRES),
+
+  pushToPostgres: (): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PUSH_TO_POSTGRES),
 };
 
 // Expose the API to the renderer process

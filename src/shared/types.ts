@@ -213,6 +213,12 @@ export const IPC_CHANNELS = {
   GET_PROJECT_PROGRAMS: 'get-project-programs',
   ADD_PROJECT_PROGRAM: 'add-project-program',
   REMOVE_PROJECT_PROGRAM: 'remove-project-program',
+
+  // Admin: pull all latest data from PostgreSQL into SQLite
+  PULL_FROM_POSTGRES: 'pull-from-postgres',
+
+  // Admin: push local SQLite data up to PostgreSQL
+  PUSH_TO_POSTGRES: 'push-to-postgres',
 } as const;
 
 export interface ActiveWindow {

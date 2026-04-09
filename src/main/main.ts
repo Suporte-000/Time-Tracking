@@ -118,7 +118,9 @@ class TimeTrackApp {
     this.pg.connect().then(async ok => {
       if (ok) {
         console.log('[Postgres] Connected to Railway');
-        // Pull shared data (projects, programs) from PostgreSQL into local SQLite
+        // Restore user-config.json if it was deleted (ID recovery)
+        await this.sync?.tryRestoreLocalUser();
+        // Pull shared data (projects, programs, members) from PostgreSQL into local SQLite
         await this.sync?.pullFromPostgres();
         // Sync all today's entries up to PostgreSQL
         this.sync?.syncAllTodayEntries().catch(() => {});
@@ -715,7 +717,8 @@ class TimeTrackApp {
     ipcMain.handle(IPC_CHANNELS.CREATE_PROJECT, async (_, project) => {
       const created = this.db?.createProject(project);
       if (created && this.pg?.isConnected()) {
-        this.pg.upsertProject(created).catch(e => console.warn('[Sync] project upsert failed:', e.message));
+        await this.pg.upsertProject(created);
+        console.log(`[Admin] Created project: ${created.name}`);
       }
       return created;
     });
@@ -725,7 +728,7 @@ class TimeTrackApp {
       if (result && this.pg?.isConnected()) {
         const projects = this.db?.getProjects() || [];
         const p = projects.find((x: any) => x.id === id);
-        if (p) this.pg.upsertProject(p).catch(e => console.warn('[Sync] project update failed:', e.message));
+        if (p) { await this.pg.upsertProject(p); console.log(`[Admin] Updated project: ${id}`); }
       }
       return result;
     });
@@ -733,7 +736,8 @@ class TimeTrackApp {
     ipcMain.handle(IPC_CHANNELS.DELETE_PROJECT, async (_, id: string) => {
       const result = this.db?.deleteProject(id);
       if (result && this.pg?.isConnected()) {
-        this.pg.deleteProject(id).catch(e => console.warn('[Sync] project delete failed:', e.message));
+        await this.pg.deleteProject(id);
+        console.log(`[Admin] Deleted project: ${id}`);
       }
       return result;
     });
@@ -901,29 +905,45 @@ class TimeTrackApp {
     ipcMain.handle(IPC_CHANNELS.ADD_PROJECT_PROGRAM, async (_, projectId: string, processName: string, displayName: string) => {
       const result = this.db?.addProjectProgram(projectId, processName, displayName);
       if (result && this.pg?.isConnected()) {
-        this.pg.upsertProjectProgram({
+        await this.pg.upsertProjectProgram({
           id: result.id,
           project_id: projectId,
           process_name: processName,
           display_name: displayName,
-        }).catch(e => console.warn('[Sync] program upsert failed:', e.message));
+        });
+        console.log(`[Admin] Added program: ${displayName} (${processName})`);
       }
       return result;
     });
 
     ipcMain.handle(IPC_CHANNELS.REMOVE_PROJECT_PROGRAM, async (_, id: string) => {
-      // Get program details before deleting (for PG sync)
       const programs = this.db?.getProjectPrograms() || [];
       const prog = programs.find((p: any) => p.id === id);
       const result = this.db?.removeProjectProgram(id);
       if (result && prog && this.pg?.isConnected()) {
-        this.pg.deleteProjectProgram(id).catch(e => console.warn('[Sync] program delete failed:', e.message));
+        await this.pg.deleteProjectProgram(id);
+        console.log(`[Admin] Removed program: ${id}`);
       }
       return result;
     });
 
     ipcMain.handle(IPC_CHANNELS.GET_POSTGRES_STATUS, () => {
       return this.pg?.isConnected() ?? false;
+    });
+
+    ipcMain.handle(IPC_CHANNELS.PULL_FROM_POSTGRES, async () => {
+      if (!this.pg?.isConnected()) return false;
+      await this.sync?.pullFromPostgres();
+      console.log('[Admin] Pulled all data from PostgreSQL');
+      return true;
+    });
+
+    ipcMain.handle(IPC_CHANNELS.PUSH_TO_POSTGRES, async () => {
+      if (!this.pg?.isConnected()) return false;
+      await this.sync?.syncAllTodayEntries();
+      await this.sync?.syncAllProjects();
+      console.log('[Admin] Pushed all local data to PostgreSQL');
+      return true;
     });
 
     ipcMain.handle(IPC_CHANNELS.GET_LOCAL_USER, () => {
@@ -943,18 +963,46 @@ class TimeTrackApp {
     });
 
     ipcMain.handle(IPC_CHANNELS.ADD_TEAM_MEMBER, async (_, member) => {
-      if (!this.pg) return null;
-      return this.pg.addTeamMember(member);
+      // 1. Save to SQLite
+      this.db?.upsertTeamMember(member);
+      console.log(`[Admin] Saved team member to SQLite: ${member.name}`);
+      // 2. Sync to PostgreSQL
+      if (this.pg?.isConnected()) {
+        const result = await this.pg.addTeamMember(member);
+        console.log(`[Admin] Synced team member to PostgreSQL: ${member.name}`);
+        return result;
+      }
+      return member;
     });
 
     ipcMain.handle(IPC_CHANNELS.UPDATE_TEAM_MEMBER, async (_, id: string, updates) => {
-      if (!this.pg) return false;
-      return this.pg.updateTeamMember(id, updates);
+      // 1. Save to SQLite
+      const members = this.db?.getTeamMembers() || [];
+      const existing = members.find((m: any) => m.id === id);
+      if (existing) {
+        this.db?.upsertTeamMember({ ...existing, ...updates, id });
+        console.log(`[Admin] Updated team member in SQLite: ${id}`);
+      }
+      // 2. Sync to PostgreSQL
+      if (this.pg?.isConnected()) {
+        const result = await this.pg.updateTeamMember(id, updates);
+        console.log(`[Admin] Synced team member update to PostgreSQL: ${id}`);
+        return result;
+      }
+      return true;
     });
 
     ipcMain.handle(IPC_CHANNELS.REMOVE_TEAM_MEMBER, async (_, id: string) => {
-      if (!this.pg) return false;
-      return this.pg.removeTeamMember(id);
+      // 1. Delete from SQLite
+      this.db?.deleteTeamMember(id);
+      console.log(`[Admin] Removed team member from SQLite: ${id}`);
+      // 2. Sync to PostgreSQL
+      if (this.pg?.isConnected()) {
+        const result = await this.pg.removeTeamMember(id);
+        console.log(`[Admin] Synced team member removal to PostgreSQL: ${id}`);
+        return result;
+      }
+      return true;
     });
 
     ipcMain.handle(IPC_CHANNELS.GET_TEAM_ENTRIES, async (_, date: string) => {
