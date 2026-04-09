@@ -239,6 +239,60 @@ const PinGateModal: React.FC<{ onSuccess: ()=>void; onCancel: ()=>void }> = ({ o
   );
 };
 
+// ── Entry Picker modal ───────────────────────────────────────────────────────
+const EntryPickerModal: React.FC<{
+  member: TeamMember;
+  entries: TeamTimeEntry[];
+  onPick: (entry: TeamTimeEntry) => void;
+  onClose: () => void;
+}> = ({ member, entries, onPick, onClose }) => {
+  const { t } = useI18n();
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
+      <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px 32px', width:'480px', maxHeight:'70vh', display:'flex', flexDirection:'column' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
+          <div>
+            <div style={{ fontSize:'15px', fontWeight:700, color:'#E8F6F5' }}>{t('adjust.title')}</div>
+            <div style={{ fontSize:'12px', color:'#718096', marginTop:'2px' }}>{member.name} — {t('adjust.pickEntry')}</div>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'#718096', fontSize:'18px', cursor:'pointer' }}>✕</button>
+        </div>
+        <div style={{ overflowY:'auto', flex:1 }}>
+          {entries.length === 0 ? (
+            <div style={{ textAlign:'center', color:'#4A5568', padding:'24px', fontSize:'13px' }}>{t('adjust.noEntries')}</div>
+          ) : entries.map(e => {
+            const dur = e.end_time
+              ? Math.floor((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 1000)
+              : null;
+            const fmt = (secs: number) => { const h = Math.floor(secs/3600); const m = Math.floor((secs%3600)/60); return h>0?`${h}h${m}m`:`${m}m`; };
+            const fmtT = (iso: string) => new Date(iso).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+            return (
+              <div key={e.id} onClick={() => onPick(e)}
+                style={{ padding:'12px 14px', borderRadius:'8px', border:'1px solid #1E2530', marginBottom:'8px', cursor:'pointer', background:'#0A0E14', transition:'border-color 0.15s' }}
+                onMouseEnter={ev => (ev.currentTarget.style.borderColor = '#1FB8A0')}
+                onMouseLeave={ev => (ev.currentTarget.style.borderColor = '#1E2530')}
+              >
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <div style={{ fontSize:'13px', fontWeight:600, color:'#E2E8F0' }}>
+                    {e.project_name ? <span style={{ color:'#1FB8A0' }}>{e.project_name}</span> : <span style={{ color:'#4A5568' }}>{t('adjust.noProject')}</span>}
+                    <span style={{ color:'#4A5568', fontWeight:400 }}> · {e.app_name}</span>
+                  </div>
+                  {dur !== null && <span style={{ fontSize:'12px', color:'#A0AEC0' }}>{fmt(dur)}</span>}
+                </div>
+                <div style={{ fontSize:'11px', color:'#718096', marginTop:'4px' }}>
+                  {fmtT(e.start_time)} — {e.end_time ? fmtT(e.end_time) : '●'}
+                  {e.is_manually_adjusted && <span style={{ marginLeft:'8px', color:'#F6AD55' }}>✏ {t('adjust.adjusted')}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={onClose} style={{ marginTop:'14px', padding:'9px', background:'transparent', border:'1px solid #1E2530', borderRadius:'8px', color:'#718096', cursor:'pointer', fontSize:'13px' }}>{t('common.cancel')}</button>
+      </div>
+    </div>
+  );
+};
+
 // ── Main component ───────────────────────────────────────────────────────────
 const Management: React.FC = () => {
   const { t } = useI18n();
@@ -254,6 +308,7 @@ const Management: React.FC = () => {
   const [editProject, setEditProject] = useState<any | null>(null);
   const [addProgramFor, setAddProgramFor] = useState<any | null>(null);
   const [adjustEntry, setAdjustEntry] = useState<TeamTimeEntry | null>(null);
+  const [adjustMember, setAdjustMember] = useState<TeamMember | null>(null);
 
   // data
   const [projects, setProjects] = useState<any[]>([]);
@@ -399,6 +454,14 @@ const Management: React.FC = () => {
       {addProgramFor && (
         <AddProgramModal projectName={addProgramFor.name} onSave={handleAddProgram} onClose={() => setAddProgramFor(null)} />
       )}
+      {adjustMember && !adjustEntry && (
+        <EntryPickerModal
+          member={adjustMember}
+          entries={teamEntries.filter(e => e.user_id === adjustMember.id && e.end_time)}
+          onPick={entry => { setAdjustEntry(entry); setAdjustMember(null); }}
+          onClose={() => setAdjustMember(null)}
+        />
+      )}
       {adjustEntry && localUser && (
         <AjustarModal
           entry={adjustEntry}
@@ -420,7 +483,7 @@ const Management: React.FC = () => {
           </div>
         </div>
         <div style={{ display:'flex', gap:'10px', alignItems:'center' }}>
-          <button onClick={() => localUser && window.electron.exportWeeklyReport(localUser.id, localUser.name)} className="btn btn-primary" style={{ fontSize:'12px' }}>
+          <button onClick={() => localUser && window.electron.exportWeeklyReport(localUser.id, localUser.name, selectedDate)} className="btn btn-primary" style={{ fontSize:'12px' }}>
             ↓ {t('management.weeklyReport')}
           </button>
           <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>{t('management.changePassword')}</button>
@@ -553,10 +616,7 @@ const Management: React.FC = () => {
                   <div style={{ fontSize:'13px', fontWeight:600, color:'#E2E8F0' }}>{formatDuration(total)}</div>
                   <div style={{ fontSize:'13px', fontWeight:700, color: pct>=100?'#1FB8A0':pct>=75?'#F6AD55':'#FC8181' }}>{pct}%</div>
                   <div>
-                    <button onClick={() => {
-                      const entries = teamEntries.filter(e => e.user_id === member.id && e.end_time);
-                      if (entries.length > 0) setAdjustEntry(entries[0]);
-                    }} className="btn" style={{ fontSize:'11px', padding:'4px 10px' }}>{t('management.adjust')}</button>
+                    <button onClick={() => setAdjustMember(member)} className="btn" style={{ fontSize:'11px', padding:'4px 10px' }}>{t('management.adjust')}</button>
                   </div>
                 </div>
               );

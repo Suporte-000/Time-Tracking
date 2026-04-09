@@ -170,8 +170,8 @@ const api = {
   hasManagerPin: (): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.HAS_MANAGER_PIN),
 
-  exportWeeklyReport: (userId: string, userName: string): Promise<string | null> =>
-    ipcRenderer.invoke(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, userId, userName),
+  exportWeeklyReport: (userId: string, userName: string, date?: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, userId, userName, date),
 
   // Project programs
   getProjectPrograms: (projectId?: string): Promise<any[]> =>

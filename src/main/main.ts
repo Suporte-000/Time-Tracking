@@ -985,14 +985,60 @@ class TimeTrackApp {
       return this.pg?.hasManagerPin() ?? false;
     });
 
-    ipcMain.handle(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, async (_, _userId: string, userName: string) => {
-      if (!this.mainWindow) return null;
-      const savePath = path.join(app.getPath('documents'), `timetrack-report-${userName.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.pdf`);
-      const pdfData = await this.mainWindow.webContents.printToPDF({
-        printBackground: true,
-        pageSize: 'A4',
-      });
-      fs.writeFileSync(savePath, pdfData);
+    ipcMain.handle(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, async (_, _userId: string, _userName: string, date?: string) => {
+      if (!this.pg) return null;
+      const reportDate = date || new Date().toISOString().split('T')[0];
+
+      const [entries, members] = await Promise.all([
+        this.pg.getTeamEntriesForDate(reportDate),
+        this.pg.getTeamMembers(),
+      ]);
+
+      // Build member totals map
+      const memberTotals = new Map<string, number>();
+      for (const e of entries) {
+        if (e.end_time) memberTotals.set(e.user_id, (memberTotals.get(e.user_id) || 0) + e.duration);
+      }
+
+      const fmt = (secs: number) => {
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        const s = secs % 60;
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      };
+      const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '';
+
+      const lines: string[] = [];
+
+      // Sheet 1: summary per member
+      lines.push(`Team Report — ${reportDate}`);
+      lines.push('');
+      lines.push('MEMBER SUMMARY');
+      lines.push('Member,Goal (h),Total,Progress %');
+      for (const m of members) {
+        const total = memberTotals.get(m.id) || 0;
+        const pct = m.goal_hours > 0 ? Math.round((total / (m.goal_hours * 3600)) * 100) : 0;
+        lines.push(`"${m.name}",${m.goal_hours},${fmt(total)},${pct}%`);
+      }
+
+      lines.push('');
+      lines.push('TIME ENTRIES');
+      lines.push('Member,Project,App,Start,End,Duration,Adjusted');
+      for (const e of entries) {
+        lines.push([
+          `"${e.user_name}"`,
+          `"${e.project_name || 'No Project'}"`,
+          `"${e.app_name}"`,
+          fmtTime(e.start_time),
+          fmtTime(e.end_time),
+          fmt(e.duration),
+          e.is_manually_adjusted ? 'Yes' : 'No',
+        ].join(','));
+      }
+
+      const csv = lines.join('\r\n');
+      const savePath = path.join(app.getPath('documents'), `timetrack-team-${reportDate}.csv`);
+      fs.writeFileSync(savePath, '\uFEFF' + csv, 'utf8'); // BOM for Excel
       shell.openPath(savePath);
       return savePath;
     });

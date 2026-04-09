@@ -655,6 +655,9 @@ const translations = {
   'adjust.save': { 'en': 'Save Adjustment', 'es': 'Guardar Ajuste', 'pt-BR': 'Salvar Ajuste' },
   'adjust.saving': { 'en': 'Saving...', 'es': 'Guardando...', 'pt-BR': 'Salvando...' },
   'adjust.active': { 'en': 'active', 'es': 'activo', 'pt-BR': 'ativo' },
+  'adjust.pickEntry': { 'en': 'Select entry to adjust', 'es': 'Seleccionar entrada a ajustar', 'pt-BR': 'Selecionar entrada para ajustar' },
+  'adjust.noEntries': { 'en': 'No completed entries found for this date.', 'es': 'No se encontraron entradas completadas para esta fecha.', 'pt-BR': 'Nenhuma entrada concluída encontrada para esta data.' },
+  'adjust.adjusted': { 'en': 'adjusted', 'es': 'ajustado', 'pt-BR': 'ajustado' },
 
   // FirstRun
   'firstrun.title': { 'en': 'Welcome to TimeTrack', 'es': 'Bienvenido a TimeTrack', 'pt-BR': 'Bem-vindo ao TimeTrack' },
