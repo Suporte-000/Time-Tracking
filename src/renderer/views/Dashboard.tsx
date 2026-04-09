@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ProjectPopup from '../components/ProjectPopup';
 import type { Project, TimeEntry, MonitoredApp } from '../../shared/types';
 import { PROJECT_COLORS } from '../../shared/colors';
 import { useI18n } from '../i18nContext';
@@ -26,21 +25,11 @@ const Dashboard: React.FC = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const projectsRef = useRef<Project[]>([]);
 
-  const [showPopup, setShowPopup] = useState(false);
-  const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const POPUP_DELAY_MS = 2 * 60 * 1000; // 2 minutes
-
   useEffect(() => {
     loadProjects(); loadTodayEntries(); loadMonitoredApps();
-    // Schedule popup after 2 minutes (virtual simulation of app detection)
-    popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);
 
     // Refresh when main process auto-stops a tracking entry (process exited)
     (window.electron as any)?.onTrackingAutoStopped?.(() => { loadTodayEntries(); });
-
-    return () => {
-      if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
-    };
   }, []);
 
   useEffect(() => {
@@ -89,28 +78,6 @@ const Dashboard: React.FC = () => {
   const handleStopTimer = async (entryId: string) => {
     try { await window.electron.stopTracking(entryId, 'manual'); setActiveEntries(prev => prev.filter(e => e.id !== entryId)); await loadTodayEntries(); }
     catch (error) { console.error('Error stopping timer:', error); }
-  };
-
-  const triggerPopup = () => {
-    if (projectsRef.current.length === 0) return;
-    // Bring main window to front, then show popup overlay
-    window.electron.showMainWindow?.();
-    setShowPopup(true);
-  };
-
-  const handlePopupSelect = async (projectId: string, appName: string, processName: string) => {
-    try {
-      const entry = await window.electron.startTracking({ userId: 'user', projectId, appName, processName });
-      setActiveEntries(prev => [...prev, entry]);
-      await loadTodayEntries();
-    } catch (e) { console.error(e); }
-    setShowPopup(false);
-    popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);
-  };
-
-  const handlePopupDismiss = () => {
-    setShowPopup(false);
-    popupTimerRef.current = setTimeout(() => triggerPopup(), POPUP_DELAY_MS);
   };
 
   const handleStopAll = async () => {
@@ -268,19 +235,6 @@ const Dashboard: React.FC = () => {
         <div className="kpi-card"><div className="kpi-label">{t('kpi.noProject')}</div><div className="kpi-val">0h 0m</div><div className="kpi-sub">{t('kpi.unlinked')}</div></div>
       </div>
 
-
-      {/* Popup overlay */}
-      {showPopup && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-          <ProjectPopup
-            appName=""
-            processName=""
-            activeProjectIds={new Set(activeEntries.map(e => e.projectId).filter((id): id is string => !!id))}
-            onSelect={handlePopupSelect}
-            onDismiss={handlePopupDismiss}
-          />
-        </div>
-      )}
 
       {/* Project list */}
       <div className="section-label">{t('project.registered')}</div>

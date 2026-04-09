@@ -9,8 +9,23 @@ function formatDuration(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   return `${h}h ${m}m`;
 }
+function formatMins(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h > 0 ? `${h}h${m}m` : `${m}m`;
+}
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function calcDuration(start: string | null, end: string | null): number {
+  if (!start || !end) return 0;
+  return Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+}
+function formatDatePT(date: Date): string {
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
 }
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -250,6 +265,7 @@ const Management: React.FC = () => {
   const [tab, setTab] = useState<'team'|'projects'>('projects');
 
   const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(today);
 
   useEffect(() => {
     window.electron.getPostgresStatus().then(setPgConnected);
@@ -257,18 +273,22 @@ const Management: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (pinVerified) loadAll();
+    if (pinVerified) loadAll(selectedDate);
   }, [pinVerified]);
 
-  const loadAll = async () => {
+  useEffect(() => {
+    if (pinVerified) loadAll(selectedDate);
+  }, [selectedDate]);
+
+  const loadAll = async (date: string = selectedDate) => {
     setLoading(true);
     try {
       const [proj, prog, m, entries, audit] = await Promise.all([
         window.electron.getProjects(),
         window.electron.getProjectPrograms(),
         window.electron.getTeamMembers(),
-        window.electron.getTeamEntries(today),
-        window.electron.getAuditLog(today),
+        window.electron.getTeamEntries(date),
+        window.electron.getAuditLog(date),
       ]);
       setProjects(proj);
       setPrograms(prog);
@@ -278,29 +298,35 @@ const Management: React.FC = () => {
     } finally { setLoading(false); }
   };
 
+  const shiftDate = (days: number) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(d.toISOString().split('T')[0]);
+  };
+
   // ── Project helpers ──
   const handleCreateProject = async (name: string, subproject: string, color: string) => {
     await window.electron.createProject({ name, subproject: subproject || undefined, color, isActive: true });
     setShowProjectModal(false);
     setEditProject(null);
-    await loadAll();
+    await loadAll(selectedDate);
   };
 
   const handleDeleteProject = async (id: string) => {
     if (!confirm('Delete this project? Programs linked to it will also be removed.')) return;
     await window.electron.deleteProject(id);
-    await loadAll();
+    await loadAll(selectedDate);
   };
 
   const handleAddProgram = async (processName: string, displayName: string) => {
     await window.electron.addProjectProgram(addProgramFor.id, processName, displayName);
     setAddProgramFor(null);
-    await loadAll();
+    await loadAll(selectedDate);
   };
 
   const handleRemoveProgram = async (id: string) => {
     await window.electron.removeProjectProgram(id);
-    await loadAll();
+    await loadAll(selectedDate);
   };
 
   // ── Import CSV ──
@@ -320,7 +346,7 @@ const Management: React.FC = () => {
       count++;
     }
     e.target.value = '';
-    await loadAll();
+    await loadAll(selectedDate);
   };
 
   // ── Team helpers ──
@@ -380,7 +406,7 @@ const Management: React.FC = () => {
           projects={projects}
           managerId={localUser.id}
           managerName={localUser.name}
-          onSave={async () => { setAdjustEntry(null); await loadAll(); }}
+          onSave={async () => { setAdjustEntry(null); await loadAll(selectedDate); }}
           onClose={() => setAdjustEntry(null)}
         />
       )}
@@ -390,12 +416,15 @@ const Management: React.FC = () => {
         <div>
           <div style={{ fontSize:'22px', fontWeight:700, color:'#E2E8F0' }}>{t('management.title')}</div>
           <div style={{ fontSize:'12px', color:'#718096', marginTop:'4px' }}>
-            {t('management.subtitle')} · {t('management.today')}, {new Date().toLocaleDateString()}
+            {t('management.subtitle')} · {t('management.today')}, {formatDatePT(new Date())}
           </div>
         </div>
-        <div style={{ display:'flex', gap:'10px' }}>
+        <div style={{ display:'flex', gap:'10px', alignItems:'center' }}>
+          <button onClick={() => localUser && window.electron.exportWeeklyReport(localUser.id, localUser.name)} className="btn btn-primary" style={{ fontSize:'12px' }}>
+            ↓ {t('management.weeklyReport')}
+          </button>
           <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>{t('management.changePassword')}</button>
-          <button onClick={loadAll} className="btn" style={{ fontSize:'12px' }}>{t('management.refresh')}</button>
+          <button onClick={loadAll} className="btn" style={{ fontSize:'12px' }}>↻</button>
         </div>
       </div>
 
@@ -463,10 +492,32 @@ const Management: React.FC = () => {
 
         /* ── TEAM TAB ── */
         <div>
+          {/* Date navigation */}
+          <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'16px' }}>
+            <button onClick={() => shiftDate(-1)} style={{ padding:'5px 12px', background:'#161C26', border:'1px solid #1E2530', borderRadius:'7px', color:'#A0AEC0', cursor:'pointer', fontSize:'14px' }}>‹</button>
+            <input
+              type="date"
+              value={selectedDate}
+              max={today}
+              onChange={e => setSelectedDate(e.target.value)}
+              style={{ padding:'5px 10px', background:'#161C26', border:'1px solid #1E2530', borderRadius:'7px', color:'#E2E8F0', fontSize:'13px', outline:'none', cursor:'pointer' }}
+            />
+            <button onClick={() => shiftDate(1)} disabled={selectedDate >= today} style={{ padding:'5px 12px', background:'#161C26', border:'1px solid #1E2530', borderRadius:'7px', color: selectedDate >= today ? '#2D3748' : '#A0AEC0', cursor: selectedDate >= today ? 'not-allowed' : 'pointer', fontSize:'14px' }}>›</button>
+            {selectedDate !== today && (
+              <button onClick={() => setSelectedDate(today)} style={{ padding:'5px 10px', background:'transparent', border:'1px solid #1E2530', borderRadius:'7px', color:'#1FB8A0', cursor:'pointer', fontSize:'12px' }}>
+                {t('management.today')}
+              </button>
+            )}
+          </div>
+
           {/* Manual adjustments alert */}
           {auditLog.length > 0 && (
-            <div style={{ background:'#2A1A0A', border:'1px solid #C05621', borderRadius:'10px', padding:'12px 16px', marginBottom:'20px', fontSize:'13px', color:'#F6AD55', display:'flex', alignItems:'center', gap:'10px' }}>
-              ⚠ <span><strong>{auditLog.length}</strong> {t('management.manualAdjustAlert')}</span>
+            <div style={{ background:'#2A1A0A', border:'1px solid #C05621', borderRadius:'10px', padding:'12px 16px', marginBottom:'20px', fontSize:'13px', color:'#F6AD55', display:'flex', alignItems:'center', gap:'8px' }}>
+              <span>⚠</span>
+              <span>
+                <strong>{auditLog.length} {auditLog.length === 1 ? t('management.manualAdjustSingle') : t('management.manualAdjustPlural')}</strong>
+                {' '}{t('management.manualAdjustSuffix')}
+              </span>
             </div>
           )}
 
@@ -518,27 +569,42 @@ const Management: React.FC = () => {
               <div style={{ fontSize:'10px', fontWeight:700, color:'#4A5568', letterSpacing:'1px', textTransform:'uppercase', marginBottom:'10px' }}>
                 {t('management.auditLog')}
               </div>
-              {auditLog.map(log => (
-                <div key={log.id} style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'10px', padding:'12px 16px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                  <div style={{ display:'flex', gap:'10px' }}>
-                    <span style={{ color:'#F6AD55' }}>✏</span>
-                    <div>
-                      <div style={{ fontSize:'13px', color:'#CBD5E0' }}>
-                        <strong style={{ color:'#E2E8F0' }}>{log.manager_name}</strong> {t('management.adjustedRecord')} <strong style={{ color:'#E2E8F0' }}>{log.target_user_name}</strong> · {log.project_name}
-                      </div>
-                      <div style={{ fontSize:'11px', color:'#718096', marginTop:'3px' }}>
-                        {log.old_start_time ? formatTime(log.old_start_time) : '?'}
-                        {log.old_end_time ? `–${formatTime(log.old_end_time)}` : ''}
-                        {' → '}
-                        {log.new_start_time ? formatTime(log.new_start_time) : '?'}
-                        {log.new_end_time ? `–${formatTime(log.new_end_time)}` : ''}
-                        {' — '}{log.motive}
+              {auditLog.map(log => {
+                const oldDur = calcDuration(log.old_start_time, log.old_end_time);
+                const newDur = calcDuration(log.new_start_time, log.new_end_time);
+                return (
+                  <div key={log.id} style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'10px', padding:'12px 16px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                    <div style={{ display:'flex', gap:'12px' }}>
+                      <span style={{ color:'#F6AD55', fontSize:'15px', marginTop:'1px' }}>✏</span>
+                      <div>
+                        <div style={{ fontSize:'13px', color:'#CBD5E0' }}>
+                          <strong style={{ color:'#E2E8F0' }}>{log.manager_name}</strong>
+                          {' '}{t('management.adjustedRecord')}{' '}
+                          <strong style={{ color:'#E2E8F0' }}>{log.target_user_name}</strong>
+                          {' '}{t('management.inProject')}{' '}
+                          <strong style={{ color:'#1FB8A0' }}>{log.project_name}</strong>
+                        </div>
+                        <div style={{ fontSize:'11px', color:'#718096', marginTop:'4px' }}>
+                          <span style={{ color:'#FC8181' }}>{formatMins(oldDur)}</span>
+                          {' → '}
+                          <span style={{ color:'#1FB8A0' }}>{formatMins(newDur)}</span>
+                          {' ('}
+                          {log.old_start_time ? formatTime(log.old_start_time) : '?'}
+                          {'–'}
+                          {log.old_end_time ? formatTime(log.old_end_time) : '?'}
+                          {' → '}
+                          {log.new_start_time ? formatTime(log.new_start_time) : '?'}
+                          {'–'}
+                          {log.new_end_time ? formatTime(log.new_end_time) : '?'}
+                          {') — '}
+                          <span style={{ color:'#A0AEC0' }}>{t('management.motive')}: {log.motive}</span>
+                        </div>
                       </div>
                     </div>
+                    <div style={{ fontSize:'12px', color:'#4A5568', flexShrink:0, paddingLeft:'12px' }}>{formatTime(log.created_at)}</div>
                   </div>
-                  <div style={{ fontSize:'12px', color:'#4A5568', flexShrink:0 }}>{formatTime(log.created_at)}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

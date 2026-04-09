@@ -593,6 +593,15 @@ const translations = {
     'es': 'Ingresar Contraseña',
     'pt-BR': 'Entrar com Senha',
   },
+  'management.weeklyReport': { 'en': 'Weekly Report', 'es': 'Informe Semanal', 'pt-BR': 'Relatório Semanal' },
+  'management.inProject': { 'en': 'in project', 'es': 'en el proyecto', 'pt-BR': 'no projeto' },
+  'management.manualAdjustSingle': { 'en': 'manual adjustment', 'es': 'ajuste manual', 'pt-BR': 'ajuste manual' },
+  'management.manualAdjustPlural': { 'en': 'manual adjustments', 'es': 'ajustes manuales', 'pt-BR': 'ajustes manuais' },
+  'management.manualAdjustSuffix': {
+    'en': 'made today — all recorded in the audit log below',
+    'es': 'realizados hoy — todos registrados en el registro de auditoría abajo',
+    'pt-BR': 'realizados hoje — todos registrados no audit log abaixo',
+  },
 
   // Password modal
   'password.managerAccess': { 'en': 'Manager Access', 'es': 'Acceso de Gestor', 'pt-BR': 'Acesso de Gestor' },
