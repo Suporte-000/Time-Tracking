@@ -117,6 +117,7 @@ export interface TeamTimeEntry {
   duration: number;
   status: string;
   is_manually_adjusted: boolean;
+  adjustment_reason: string | null;
 }
 
 export interface TeamAuditLog {

@@ -97,6 +97,12 @@ const AjustarModal: React.FC<Props> = ({ entry, member, projects, managerId, man
           <span style={{ color: '#718096' }}>{t('adjust.original')}: </span>
           {toLocalInput(entry.start_time).replace('T', ' ')} → {entry.end_time ? toLocalInput(entry.end_time).replace('T', ' ') : t('adjust.active')}
           {' · '}{entry.project_name || t('adjust.noProject')}
+          {entry.is_manually_adjusted && entry.adjustment_reason && (
+            <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid #1E2530', color: '#F6AD55' }}>
+              <span style={{ color: '#718096' }}>{t('adjust.motive')}: </span>
+              {entry.adjustment_reason}
+            </div>
+          )}
         </div>
 
         {/* Fields */}

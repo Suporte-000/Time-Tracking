@@ -989,9 +989,10 @@ class TimeTrackApp {
       if (!this.pg) return null;
       const reportDate = date || new Date().toISOString().split('T')[0];
 
-      const [entries, members] = await Promise.all([
+      const [entries, members, auditLog] = await Promise.all([
         this.pg.getTeamEntriesForDate(reportDate),
         this.pg.getTeamMembers(),
+        this.pg.getAuditLogForDate(reportDate),
       ]);
 
       // Build member totals map
@@ -1034,6 +1035,27 @@ class TimeTrackApp {
           fmt(e.duration),
           e.is_manually_adjusted ? 'Yes' : 'No',
         ].join(','));
+      }
+
+      lines.push('');
+      lines.push('MANUAL ADJUSTMENTS');
+      if (auditLog.length === 0) {
+        lines.push('No manual adjustments on this date.');
+      } else {
+        lines.push('Time,Manager,Member,Project,Old Start,Old End,New Start,New End,Reason');
+        for (const a of auditLog) {
+          lines.push([
+            fmtTime(a.created_at),
+            `"${a.manager_name}"`,
+            `"${a.target_user_name}"`,
+            `"${a.project_name}"`,
+            fmtTime(a.old_start_time),
+            fmtTime(a.old_end_time),
+            fmtTime(a.new_start_time),
+            fmtTime(a.new_end_time),
+            `"${a.motive}"`,
+          ].join(','));
+        }
       }
 
       const csv = lines.join('\r\n');
