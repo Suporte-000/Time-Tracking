@@ -689,7 +689,6 @@ class TimeTrackApp {
       alwaysOnTop: true,
       skipTaskbar: true,
       focusable: true,
-      backgroundColor: '#0A0E14',
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -899,6 +898,14 @@ class TimeTrackApp {
 
     // Popup window is disabled — tracking starts automatically
     // ipcMain.on(IPC_CHANNELS.SHOW_POPUP, ...)
+
+    // Popup resize — renderer sends actual card height, we resize the window to match
+    ipcMain.on(IPC_CHANNELS.POPUP_RESIZE, (_, height: number) => {
+      if (this.popupWindow && !this.popupWindow.isDestroyed()) {
+        const [currentWidth] = this.popupWindow.getSize();
+        this.popupWindow.setSize(currentWidth, Math.ceil(height));
+      }
+    });
 
     // Renderer log — writes renderer-side messages to the log file
     ipcMain.on(IPC_CHANNELS.RENDERER_LOG, (_, level: string, message: string) => {

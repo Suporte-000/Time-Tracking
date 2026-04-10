@@ -219,6 +219,9 @@ export const IPC_CHANNELS = {
 
   // Admin: push local SQLite data up to PostgreSQL
   PUSH_TO_POSTGRES: 'push-to-postgres',
+
+  // Popup: resize window to fit card content
+  POPUP_RESIZE: 'popup-resize',
 } as const;
 
 export interface ActiveWindow {

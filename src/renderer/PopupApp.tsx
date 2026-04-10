@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import ProjectPopup from './components/ProjectPopup';
 import { useI18n } from './i18nContext';
 
@@ -9,6 +9,15 @@ const PopupApp: React.FC = () => {
     processName: string;
   } | null>(null);
   const [userId, setUserId] = useState<string>('');
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Measure card height and tell main process to resize window
+  const sendResize = useCallback(() => {
+    if (cardRef.current) {
+      const h = cardRef.current.getBoundingClientRect().height;
+      window.electron.popupResize?.(Math.ceil(h));
+    }
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -16,11 +25,20 @@ const PopupApp: React.FC = () => {
     const processName = params.get('processName') || '';
     setAppData({ appName, processName });
 
-    // Fetch local user so we can pass userId to startTracking
     window.electron.getLocalUser().then(user => {
       if (user?.id) setUserId(user.id);
     }).catch(() => {});
   }, []);
+
+  // Re-measure whenever content changes (step change, data load)
+  useEffect(() => {
+    if (!appData) return;
+    const id = requestAnimationFrame(() => sendResize());
+    // Also observe size changes (list items loading)
+    const obs = new ResizeObserver(() => sendResize());
+    if (cardRef.current) obs.observe(cardRef.current);
+    return () => { cancelAnimationFrame(id); obs.disconnect(); };
+  }, [appData, sendResize]);
 
   const handleSelect = async (projectId: string, appName: string, processName: string) => {
     try {
@@ -42,13 +60,15 @@ const PopupApp: React.FC = () => {
   if (!appData) return <div>{t('dashboard.loading')}</div>;
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: 'transparent', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: '0' }}>
+    <div style={{ width: '100vw', height: '100vh', background: 'transparent', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', padding: '0' }}>
+      <div ref={cardRef} style={{ width: '100%' }}>
       <ProjectPopup
         appName={appData.appName}
         processName={appData.processName}
         onSelect={handleSelect}
         onDismiss={handleDismiss}
       />
+      </div>
     </div>
   );
 };

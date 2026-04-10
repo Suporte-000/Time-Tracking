@@ -63,6 +63,7 @@ declare global {
       removeProjectProgram: (id: string) => Promise<boolean>;
       pullFromPostgres: () => Promise<boolean>;
       pushToPostgres: () => Promise<boolean>;
+      popupResize: (height: number) => void;
     };
   }
 }

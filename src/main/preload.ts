@@ -188,6 +188,9 @@ const api = {
 
   pushToPostgres: (): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.PUSH_TO_POSTGRES),
+
+  popupResize: (height: number): void =>
+    ipcRenderer.send(IPC_CHANNELS.POPUP_RESIZE, height),
 };
 
 // Expose the API to the renderer process
