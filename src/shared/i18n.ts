@@ -556,6 +556,21 @@ const translations = {
     'es': '+ Programa',
     'pt-BR': '+ Programa',
   },
+  'management.programs': {
+    'en': 'Programs',
+    'es': 'Programas',
+    'pt-BR': 'Programas',
+  },
+  'management.noPrograms': {
+    'en': 'No programs registered yet.',
+    'es': 'No hay programas registrados.',
+    'pt-BR': 'Nenhum programa registrado.',
+  },
+  'management.standalone': {
+    'en': 'No project (popup on detect)',
+    'es': 'Sin proyecto (popup al detectar)',
+    'pt-BR': 'Sem projeto (popup ao detectar)',
+  },
   'management.registerProgram': {
     'en': 'Register Program',
     'es': 'Registrar Programa',

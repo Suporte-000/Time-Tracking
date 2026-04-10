@@ -307,7 +307,6 @@ const Management: React.FC = () => {
   const [showChangePin, setShowChangePin] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editProject, setEditProject] = useState<any | null>(null);
-  const [addProgramFor, setAddProgramFor] = useState<any | null>(null); // project object or true (standalone)
   const [showAddStandaloneProgram, setShowAddStandaloneProgram] = useState(false);
   const [adjustEntry, setAdjustEntry] = useState<TeamTimeEntry | null>(null);
   const [adjustMember, setAdjustMember] = useState<TeamMember | null>(null);
@@ -415,13 +414,6 @@ const Management: React.FC = () => {
   };
 
   const handleAddProgram = async (processName: string, displayName: string) => {
-    const projectId = addProgramFor && addProgramFor !== true ? addProgramFor.id : null;
-    await window.electron.addProjectProgram(projectId, processName, displayName);
-    setAddProgramFor(null);
-    await loadAll(selectedDate);
-  };
-
-  const handleAddStandaloneProgram = async (processName: string, displayName: string) => {
     await window.electron.addProjectProgram(null, processName, displayName);
     setShowAddStandaloneProgram(false);
     await loadAll(selectedDate);
@@ -499,11 +491,8 @@ const Management: React.FC = () => {
       {(showProjectModal || editProject) && (
         <ProjectModal project={editProject} onSave={handleCreateProject} onClose={() => { setShowProjectModal(false); setEditProject(null); }} />
       )}
-      {addProgramFor && (
-        <AddProgramModal projectName={addProgramFor !== true ? addProgramFor.name : undefined} onSave={handleAddProgram} onClose={() => setAddProgramFor(null)} />
-      )}
       {showAddStandaloneProgram && (
-        <AddProgramModal onSave={handleAddStandaloneProgram} onClose={() => setShowAddStandaloneProgram(false)} />
+        <AddProgramModal onSave={handleAddProgram} onClose={() => setShowAddStandaloneProgram(false)} />
       )}
       {adjustMember && !adjustEntry && (
         <EntryPickerModal
@@ -549,7 +538,7 @@ const Management: React.FC = () => {
         </div>
 
         {/* Tabs + Date picker row */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'16px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: tab === 'projects' ? '0' : '16px' }}>
           <div style={{ display:'flex', gap:'4px', background:'#0A0E14', borderRadius:'10px', padding:'4px', width:'fit-content' }}>
             {(['projects','team'] as const).map(tabKey => (
               <button key={tabKey} onClick={() => setTab(tabKey)} style={{
@@ -574,6 +563,20 @@ const Management: React.FC = () => {
           </div>
         </div>
 
+        {/* Projects tab action buttons — fixed in header */}
+        {tab === 'projects' && (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0 0' }}>
+            <div style={{ display:'flex', gap:'8px' }}>
+              <button className="btn btn-primary" onClick={() => setShowProjectModal(true)} style={{ fontSize:'12px' }}>+ {t('management.newProject')}</button>
+              <button className="btn" onClick={() => importRef.current?.click()} style={{ fontSize:'12px' }}>{t('management.importCsv')}</button>
+              <input ref={importRef} type="file" accept=".txt,.csv" style={{ display:'none' }} onChange={handleImportCSV} />
+            </div>
+            <button className="btn btn-primary" onClick={() => setShowAddStandaloneProgram(true)} style={{ fontSize:'12px' }}>
+              🖥 {t('management.registerProgram')}
+            </button>
+          </div>
+        )}
+
       </div>{/* end sticky header */}
 
       {/* ── Scrollable content ── */}
@@ -583,78 +586,62 @@ const Management: React.FC = () => {
         <div style={{ color:'#4A5568', textAlign:'center', padding:'40px' }}>{t('common.loading')}</div>
       ) : tab === 'projects' ? (
 
-        /* ── PROJECTS TAB ── */
-        <div>
-          {/* Action buttons row */}
-          <div style={{ display:'flex', gap:'10px', marginBottom:'16px', flexWrap:'wrap' }}>
-            <button className="btn btn-primary" onClick={() => setShowProjectModal(true)}>{t('management.newProject')}</button>
-            <button className="btn" onClick={() => importRef.current?.click()}>{t('management.importCsv')}</button>
-            <button className="btn" style={{ marginLeft:'auto' }} onClick={() => setShowAddStandaloneProgram(true)}>
-              🖥 {t('management.registerProgram')}
-            </button>
-            <input ref={importRef} type="file" accept=".txt,.csv" style={{ display:'none' }} onChange={handleImportCSV} />
+        /* ── PROJECTS TAB — two-column layout ── */
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', alignItems:'start' }}>
+
+          {/* ── LEFT: Projects ── */}
+          <div>
+            <div style={{ fontSize:'11px', fontWeight:700, color:'#4A5568', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:'12px' }}>{t('management.tabProjects')}</div>
+
+            {projects.length === 0 ? (
+              <div style={{ color:'#4A5568', textAlign:'center', padding:'40px', background:'#161C26', borderRadius:'12px', border:'1px solid #1E2530' }}>{t('management.noProjects')}</div>
+            ) : (
+              <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', overflow:'hidden' }}>
+                {projects.map((proj, i) => {
+                  const isLast = i === projects.length - 1;
+                  return (
+                    <div key={proj.id} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'13px 16px', borderBottom: isLast ? 'none' : '1px solid #1A1F2B' }}>
+                      <div style={{ width:'10px', height:'10px', borderRadius:'50%', background:proj.color, flexShrink:0 }} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:'13px', fontWeight:600, color:'#E2E8F0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {proj.name}{proj.subproject ? <span style={{ color:'#718096' }}> › {proj.subproject}</span> : ''}
+                        </div>
+                      </div>
+                      <button onClick={() => handleDeleteProject(proj.id)} style={{ background:'none', border:'none', color:'#4A5568', cursor:'pointer', fontSize:'14px', padding:'4px', flexShrink:0 }} title="Delete">✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Standalone programs (not linked to any project) */}
-          {(() => {
-            const standalone = programs.filter(p => !p.projectId);
-            if (standalone.length === 0) return null;
-            return (
-              <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', marginBottom:'16px', overflow:'hidden' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:'12px', padding:'12px 16px', borderBottom:'1px solid #1A1F2B', background:'#111520' }}>
-                  <span style={{ fontSize:'14px' }}>🖥</span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:'13px', fontWeight:600, color:'#A0AEC0' }}>{t('management.standalonePrograms')}</div>
-                    <div style={{ fontSize:'11px', color:'#4A5568' }}>{t('management.standaloneSub')}</div>
-                  </div>
-                </div>
-                {standalone.map(prog => (
-                  <div key={prog.id} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'9px 16px 9px 20px', borderBottom:'1px solid #111722' }}>
-                    <span style={{ fontSize:'13px' }}>🖥️</span>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:'13px', color:'#CBD5E0' }}>{prog.displayName}</div>
-                      <div style={{ fontSize:'11px', color:'#4A5568' }}>{prog.processName}.exe</div>
-                    </div>
-                    <button onClick={() => handleRemoveProgram(prog.id)} style={{ background:'none', border:'none', color:'#4A5568', cursor:'pointer', fontSize:'13px' }} title="Remove">✕</button>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
+          {/* ── RIGHT: Programs ── */}
+          <div>
+            <div style={{ fontSize:'11px', fontWeight:700, color:'#4A5568', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:'12px' }}>{t('management.programs')}</div>
 
-          {projects.length === 0 ? (
-            <div style={{ color:'#4A5568', textAlign:'center', padding:'40px' }}>{t('management.noProjects')}</div>
-          ) : projects.map(proj => {
-            const projPrograms = programs.filter(p => p.projectId === proj.id);
-            return (
-              <div key={proj.id} style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', marginBottom:'12px', overflow:'hidden' }}>
-                {/* Project header */}
-                <div style={{ display:'flex', alignItems:'center', gap:'12px', padding:'14px 16px', borderBottom: projPrograms.length > 0 ? '1px solid #1A1F2B' : 'none' }}>
-                  <div style={{ width:'10px', height:'10px', borderRadius:'50%', background:proj.color, flexShrink:0 }} />
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:'14px', fontWeight:600, color:'#E2E8F0' }}>
-                      {proj.name}{proj.subproject ? <span style={{ color:'#718096' }}> › {proj.subproject}</span> : ''}
-                    </div>
-                    <div style={{ fontSize:'11px', color:'#4A5568' }}>{projPrograms.length} {t('management.programsLinked')}</div>
-                  </div>
-                  <button onClick={() => setAddProgramFor(proj)} className="btn" style={{ fontSize:'11px', padding:'4px 10px' }}>+ {t('management.addProgram')}</button>
-                  <button onClick={() => handleDeleteProject(proj.id)} style={{ background:'none', border:'none', color:'#4A5568', cursor:'pointer', fontSize:'14px', padding:'4px' }} title="Delete">✕</button>
-                </div>
-
-                {/* Programs list */}
-                {projPrograms.map(prog => (
-                  <div key={prog.id} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'9px 16px 9px 36px', borderBottom:'1px solid #111722' }}>
-                    <span style={{ fontSize:'13px' }}>🖥️</span>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:'13px', color:'#CBD5E0' }}>{prog.displayName}</div>
-                      <div style={{ fontSize:'11px', color:'#4A5568' }}>{prog.processName}.exe</div>
-                    </div>
-                    <button onClick={() => handleRemoveProgram(prog.id)} style={{ background:'none', border:'none', color:'#4A5568', cursor:'pointer', fontSize:'13px' }} title="Remove">✕</button>
-                  </div>
-                ))}
+            {programs.length === 0 ? (
+              <div style={{ color:'#4A5568', textAlign:'center', padding:'40px', background:'#161C26', borderRadius:'12px', border:'1px solid #1E2530' }}>
+                {t('management.noPrograms')}
               </div>
-            );
-          })}
+            ) : (
+              <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', overflow:'hidden' }}>
+                {programs.map((prog, i) => {
+                  const isLast = i === programs.length - 1;
+                  return (
+                    <div key={prog.id} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'13px 16px', borderBottom: isLast ? 'none' : '1px solid #1A1F2B' }}>
+                      <span style={{ fontSize:'16px', flexShrink:0 }}>🖥️</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:'13px', color:'#CBD5E0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{prog.displayName}</div>
+                        <div style={{ fontSize:'11px', color:'#4A5568', marginTop:'2px' }}>{prog.processName}.exe</div>
+                      </div>
+                      <button onClick={() => handleRemoveProgram(prog.id)} style={{ background:'none', border:'none', color:'#4A5568', cursor:'pointer', fontSize:'13px', flexShrink:0 }} title="Remove">✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
 
       ) : (
