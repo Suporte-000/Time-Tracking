@@ -401,27 +401,27 @@ const Management: React.FC = () => {
 
   // ── Project helpers ──
   const handleCreateProject = async (name: string, subproject: string, color: string) => {
-    await window.electron.createProject({ name, subproject: subproject || undefined, color, isActive: true });
+    const created = await window.electron.createProject({ name, subproject: subproject || undefined, color, isActive: true });
     setShowProjectModal(false);
     setEditProject(null);
-    await loadAll(selectedDate);
+    if (created) setProjects(prev => [...prev, created]);
   };
 
   const handleDeleteProject = async (id: string) => {
-    if (!confirm('Delete this project? Programs linked to it will also be removed.')) return;
-    await window.electron.deleteProject(id);
-    await loadAll(selectedDate);
+    if (!confirm('Delete this project?')) return;
+    setProjects(prev => prev.filter(p => p.id !== id));
+    window.electron.deleteProject(id);
   };
 
   const handleAddProgram = async (processName: string, displayName: string) => {
-    await window.electron.addProjectProgram(null, processName, displayName);
+    const created = await window.electron.addProjectProgram(null, processName, displayName);
     setShowAddStandaloneProgram(false);
-    await loadAll(selectedDate);
+    if (created) setPrograms(prev => [...prev, created]);
   };
 
   const handleRemoveProgram = async (id: string) => {
-    await window.electron.removeProjectProgram(id);
-    await loadAll(selectedDate);
+    setPrograms(prev => prev.filter(p => p.id !== id));
+    window.electron.removeProjectProgram(id);
   };
 
   // ── Import CSV ──
@@ -580,23 +580,23 @@ const Management: React.FC = () => {
       </div>{/* end sticky header */}
 
       {/* ── Scrollable content ── */}
-      <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
+      <div style={{ flex:1, overflow:'hidden', padding:'20px 24px', display:'flex', flexDirection:'column' }}>
 
       {loading ? (
         <div style={{ color:'#4A5568', textAlign:'center', padding:'40px' }}>{t('common.loading')}</div>
       ) : tab === 'projects' ? (
 
         /* ── PROJECTS TAB — two-column layout ── */
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', alignItems:'start' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', flex:1, overflow:'hidden' }}>
 
           {/* ── LEFT: Projects ── */}
-          <div>
-            <div style={{ fontSize:'11px', fontWeight:700, color:'#4A5568', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:'12px' }}>{t('management.tabProjects')}</div>
+          <div style={{ display:'flex', flexDirection:'column', overflow:'hidden' }}>
+            <div style={{ fontSize:'11px', fontWeight:700, color:'#4A5568', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:'12px', flexShrink:0 }}>{t('management.tabProjects')}</div>
 
             {projects.length === 0 ? (
               <div style={{ color:'#4A5568', textAlign:'center', padding:'40px', background:'#161C26', borderRadius:'12px', border:'1px solid #1E2530' }}>{t('management.noProjects')}</div>
             ) : (
-              <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', overflow:'hidden' }}>
+              <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', overflowY:'auto', flex:1 }}>
                 {projects.map((proj, i) => {
                   const isLast = i === projects.length - 1;
                   return (
@@ -616,15 +616,15 @@ const Management: React.FC = () => {
           </div>
 
           {/* ── RIGHT: Programs ── */}
-          <div>
-            <div style={{ fontSize:'11px', fontWeight:700, color:'#4A5568', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:'12px' }}>{t('management.programs')}</div>
+          <div style={{ display:'flex', flexDirection:'column', overflow:'hidden' }}>
+            <div style={{ fontSize:'11px', fontWeight:700, color:'#4A5568', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:'12px', flexShrink:0 }}>{t('management.programs')}</div>
 
             {programs.length === 0 ? (
               <div style={{ color:'#4A5568', textAlign:'center', padding:'40px', background:'#161C26', borderRadius:'12px', border:'1px solid #1E2530' }}>
                 {t('management.noPrograms')}
               </div>
             ) : (
-              <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', overflow:'hidden' }}>
+              <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', overflowY:'auto', flex:1 }}>
                 {programs.map((prog, i) => {
                   const isLast = i === programs.length - 1;
                   return (
@@ -647,7 +647,7 @@ const Management: React.FC = () => {
       ) : (
 
         /* ── TEAM TAB ── */
-        <div>
+        <div style={{ flex:1, overflowY:'auto' }}>
           {/* Manual adjustments alert */}
           {auditLog.length > 0 && (
             <div style={{ background:'#2A1A0A', border:'1px solid #C05621', borderRadius:'10px', padding:'12px 16px', marginBottom:'20px', fontSize:'13px', color:'#F6AD55', display:'flex', alignItems:'center', gap:'8px' }}>

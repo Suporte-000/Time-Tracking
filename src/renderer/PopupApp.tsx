@@ -42,7 +42,7 @@ const PopupApp: React.FC = () => {
   if (!appData) return <div>{t('dashboard.loading')}</div>;
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: 'transparent' }}>
+    <div style={{ width: '100vw', height: '100vh', background: 'transparent', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: '0' }}>
       <ProjectPopup
         appName={appData.appName}
         processName={appData.processName}

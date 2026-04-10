@@ -672,8 +672,8 @@ class TimeTrackApp {
 
 
     const { workArea } = screen.getPrimaryDisplay();
-    const popupWidth = 400;
-    const popupHeight = 520;
+    const popupWidth = 360;
+    const popupHeight = 480;
     const margin = 12;
     const x = workArea.x + workArea.width - popupWidth - margin;
     const y = workArea.y + workArea.height - popupHeight - margin;
@@ -685,7 +685,7 @@ class TimeTrackApp {
       y,
       resizable: false,
       frame: false,
-      transparent: false,
+      transparent: true,
       alwaysOnTop: true,
       skipTaskbar: true,
       focusable: true,
@@ -739,30 +739,28 @@ class TimeTrackApp {
       return this.db?.getProjects() || [];
     });
 
-    ipcMain.handle(IPC_CHANNELS.CREATE_PROJECT, async (_, project) => {
+    ipcMain.handle(IPC_CHANNELS.CREATE_PROJECT, (_, project) => {
       const created = this.db?.createProject(project);
       if (created && this.pg?.isConnected()) {
-        await this.pg.upsertProject(created);
-        console.log(`[Admin] Created project: ${created.name}`);
+        this.pg.upsertProject(created).catch(() => {});
       }
       return created;
     });
 
-    ipcMain.handle(IPC_CHANNELS.UPDATE_PROJECT, async (_, id: string, updates) => {
+    ipcMain.handle(IPC_CHANNELS.UPDATE_PROJECT, (_, id: string, updates) => {
       const result = this.db?.updateProject(id, updates);
       if (result && this.pg?.isConnected()) {
         const projects = this.db?.getProjects() || [];
         const p = projects.find((x: any) => x.id === id);
-        if (p) { await this.pg.upsertProject(p); console.log(`[Admin] Updated project: ${id}`); }
+        if (p) this.pg.upsertProject(p).catch(() => {});
       }
       return result;
     });
 
-    ipcMain.handle(IPC_CHANNELS.DELETE_PROJECT, async (_, id: string) => {
+    ipcMain.handle(IPC_CHANNELS.DELETE_PROJECT, (_, id: string) => {
       const result = this.db?.deleteProject(id);
       if (result && this.pg?.isConnected()) {
-        await this.pg.deleteProject(id);
-        console.log(`[Admin] Deleted project: ${id}`);
+        this.pg.deleteProject(id).catch(() => {});
       }
       return result;
     });
@@ -957,24 +955,20 @@ class TimeTrackApp {
     ipcMain.handle(IPC_CHANNELS.ADD_PROJECT_PROGRAM, async (_, projectId: string | null, processName: string, displayName: string) => {
       const result = this.db?.addProjectProgram(projectId ?? null, processName, displayName);
       if (result && this.pg?.isConnected()) {
-        await this.pg.upsertProjectProgram({
+        this.pg.upsertProjectProgram({
           id: result.id,
           project_id: projectId ?? null,
           process_name: processName,
           display_name: displayName,
-        });
-        console.log(`[Admin] Added program: ${displayName} (${processName})`);
+        }).catch(() => {});
       }
       return result;
     });
 
-    ipcMain.handle(IPC_CHANNELS.REMOVE_PROJECT_PROGRAM, async (_, id: string) => {
-      const programs = this.db?.getProjectPrograms() || [];
-      const prog = programs.find((p: any) => p.id === id);
+    ipcMain.handle(IPC_CHANNELS.REMOVE_PROJECT_PROGRAM, (_, id: string) => {
       const result = this.db?.removeProjectProgram(id);
-      if (result && prog && this.pg?.isConnected()) {
-        await this.pg.deleteProjectProgram(id);
-        console.log(`[Admin] Removed program: ${id}`);
+      if (result && this.pg?.isConnected()) {
+        this.pg.deleteProjectProgram(id).catch(() => {});
       }
       return result;
     });

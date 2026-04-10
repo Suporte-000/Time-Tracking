@@ -75,6 +75,12 @@ if (!window.electron) {
 // Determine which app to render based on URL hash
 const isPopup = window.location.hash === '#popup' || window.location.search.includes('mode=popup');
 
+// Make body transparent for popup window so no black background shows
+if (isPopup) {
+  document.body.style.background = 'transparent';
+  document.documentElement.style.background = 'transparent';
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <I18nProvider>
