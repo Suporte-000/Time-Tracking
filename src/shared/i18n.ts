@@ -556,6 +556,21 @@ const translations = {
     'es': '+ Programa',
     'pt-BR': '+ Programa',
   },
+  'management.registerProgram': {
+    'en': 'Register Program',
+    'es': 'Registrar Programa',
+    'pt-BR': 'Registrar Programa',
+  },
+  'management.standalonePrograms': {
+    'en': 'Registered Programs (no project)',
+    'es': 'Programas Registrados (sin proyecto)',
+    'pt-BR': 'Programas Registrados (sem projeto)',
+  },
+  'management.standaloneSub': {
+    'en': 'Tracked independently — not linked to a project',
+    'es': 'Rastreados de forma independiente — sin proyecto',
+    'pt-BR': 'Rastreados independentemente — sem projeto',
+  },
   'management.noMembers': {
     'en': 'No team members yet. Members are registered automatically on first launch.',
     'es': 'Sin miembros aún. Los miembros se registran automáticamente al primer inicio.',
@@ -633,6 +648,7 @@ const translations = {
   'modal.nameRequired': { 'en': 'Name required', 'es': 'Nombre requerido', 'pt-BR': 'Nome obrigatório' },
   'modal.addProgram': { 'en': 'Add Program', 'es': 'Agregar Programa', 'pt-BR': 'Adicionar Programa' },
   'modal.linkedTo': { 'en': 'Linked to', 'es': 'Vinculado a', 'pt-BR': 'Vinculado a' },
+  'modal.noProject': { 'en': 'No project — tracked independently', 'es': 'Sin proyecto — rastreado de forma independiente', 'pt-BR': 'Sem projeto — rastreado independentemente' },
   'modal.displayName': { 'en': 'Display Name', 'es': 'Nombre para Mostrar', 'pt-BR': 'Nome de Exibição' },
   'modal.processName': { 'en': 'Process Name (without .exe)', 'es': 'Nombre de Proceso (sin .exe)', 'pt-BR': 'Nome do Processo (sem .exe)' },
   'modal.processHint': { 'en': 'Check Task Manager → Details tab for the exact process name', 'es': 'Ver Administrador de Tareas → pestaña Detalles para el nombre exacto', 'pt-BR': 'Veja o Gerenciador de Tarefas → aba Detalhes para o nome exato' },

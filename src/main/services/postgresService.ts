@@ -175,11 +175,11 @@ export class PostgresService {
 
       CREATE TABLE IF NOT EXISTS project_programs (
         id TEXT PRIMARY KEY,
-        project_id TEXT NOT NULL,
+        project_id TEXT,
         process_name TEXT NOT NULL,
         display_name TEXT NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW(),
-        UNIQUE(project_id, process_name)
+        UNIQUE(process_name)
       );
     `);
 
@@ -329,11 +329,11 @@ export class PostgresService {
     return res.rows;
   }
 
-  async upsertProjectProgram(program: { id: string; project_id: string; process_name: string; display_name: string }): Promise<void> {
+  async upsertProjectProgram(program: { id: string; project_id: string | null; process_name: string; display_name: string }): Promise<void> {
     await this.pool!.query(
       `INSERT INTO project_programs (id, project_id, process_name, display_name)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (project_id, process_name) DO UPDATE SET display_name=$4, id=$1`,
+       ON CONFLICT (process_name) DO UPDATE SET display_name=$4, project_id=$2, id=$1`,
       [program.id, program.project_id, program.process_name, program.display_name]
     );
   }

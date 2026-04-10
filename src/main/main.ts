@@ -475,14 +475,22 @@ class TimeTrackApp {
         if (this.popupTimers.has(prog.processName)) continue;
 
         const linked = this.db?.getProjectByProcess(prog.processName);
-        if (!linked) continue;
+        const projectId = linked?.projectId ?? null;
+        const displayName = linked?.displayName ?? prog.displayName;
 
-        // Auto-start tracking immediately (no popup)
-        console.log(`[Scan] Auto-starting tracking for "${linked.projectName}" / "${prog.processName}"`);
+        // Standalone (no project) → show popup for user to pick project
+        if (!projectId) {
+          console.log(`[Scan] Standalone program "${prog.processName}" — showing popup`);
+          this.createPopupWindow(displayName, prog.processName);
+          break; // one at a time
+        }
+
+        // Project linked → auto-start tracking immediately
+        console.log(`[Scan] Auto-starting tracking for "${linked?.projectName}" / "${prog.processName}"`);
         const entry = this.db?.startTracking({
           userId: user.id,
-          projectId: linked.projectId,
-          appName: linked.displayName,
+          projectId,
+          appName: displayName,
           processName: prog.processName,
         });
         if (entry) {
@@ -490,7 +498,7 @@ class TimeTrackApp {
           if (this.mainWindow && !this.mainWindow.isDestroyed()) {
             this.mainWindow.webContents.send(IPC_CHANNELS.ACTIVE_WINDOW_CHANGED, {
               processName: prog.processName,
-              windowTitle: linked.displayName,
+              windowTitle: displayName,
             });
           }
           this.showTrackingNotification();
@@ -553,11 +561,7 @@ class TimeTrackApp {
       this.currentActiveProcess = processName;
     }
 
-    // Skip if no projects or no registered programs exist
-    if ((this.db?.getProjects() || []).length === 0) {
-      console.log(`[AutoTrack] Skipped "${processName}": no active projects in SQLite`);
-      return;
-    }
+    // Skip if no registered programs exist
     if ((this.db?.getProjectPrograms() || []).length === 0) {
       console.log(`[AutoTrack] Skipped "${processName}": no registered programs in SQLite`);
       return;
@@ -566,7 +570,7 @@ class TimeTrackApp {
     // Check if this process is registered by admin in project_programs
     const linked = this.db?.getProjectByProcess(processName);
     if (!linked) {
-      console.log(`[AutoTrack] Skipped "${processName}": not registered in any project`);
+      console.log(`[AutoTrack] Skipped "${processName}": not registered in project_programs`);
       return;
     }
 
@@ -581,12 +585,19 @@ class TimeTrackApp {
     );
 
     if (alreadyTracking) {
-      console.log(`Already tracking ${linked.projectName}`);
+      console.log(`Already tracking ${linked.projectName ?? 'standalone'}`);
       return;
     }
 
-    // Set timer to auto-start tracking after continuous use
     if (!this.popupTimers.has(processName)) {
+      // Standalone (no project linked) → show popup for user to pick project
+      if (!linked.projectId) {
+        console.log(`[AutoTrack] Standalone program "${processName}" — showing popup`);
+        this.createPopupWindow(linked.displayName, processName);
+        return;
+      }
+
+      // Project linked → auto-start after popupDelay
       console.log(`Starting timer for ${linked.projectName} / ${processName} (${popupDelay / 1000}s)`);
 
       const timer = setTimeout(() => {
@@ -605,7 +616,7 @@ class TimeTrackApp {
 
         const entry = this.db?.startTracking({
           userId: user.id,
-          projectId: linked.projectId,
+          projectId: linked.projectId ?? null,
           appName: linked.displayName,
           processName,
         });
@@ -613,14 +624,12 @@ class TimeTrackApp {
         if (entry) {
           console.log(`[AutoTrack] Auto-started tracking: ${linked.projectName} / ${processName}`);
           this.sync?.syncEntry(entry.id).catch(() => {});
-          // Notify main window to refresh dashboard
           if (this.mainWindow && !this.mainWindow.isDestroyed()) {
             this.mainWindow.webContents.send(IPC_CHANNELS.ACTIVE_WINDOW_CHANGED, {
               processName,
               windowTitle: linked.displayName,
             });
           }
-          // Show notification
           this.showTrackingNotification();
         }
       }, popupDelay);
@@ -658,20 +667,6 @@ class TimeTrackApp {
     const projects = this.db?.getProjects() || [];
     if (projects.length === 0) {
       console.log('No projects exist, skipping popup');
-      return;
-    }
-
-    // Don't show popup if there are no registered programs
-    const registeredPrograms = this.db?.getProjectPrograms() || [];
-    if (registeredPrograms.length === 0) {
-      console.log('No registered programs, skipping popup');
-      return;
-    }
-
-    // Don't show popup if this process has no linked project
-    const linked = this.db?.getProjectByProcess(processName);
-    if (!linked) {
-      console.log('No project linked to process, skipping popup');
       return;
     }
 
@@ -830,6 +825,15 @@ class TimeTrackApp {
     });
 
     ipcMain.handle(IPC_CHANNELS.START_TRACKING, async (_, data) => {
+      // Only allow tracking for registered programs (or explicit 'manual' entries)
+      const processName: string = data?.processName || '';
+      if (processName && processName !== 'manual') {
+        const registered = this.db?.getProjectByProcess(processName);
+        if (!registered) {
+          console.log(`[IPC] START_TRACKING blocked: "${processName}" is not registered in admin panel`);
+          return null;
+        }
+      }
       const entry = this.db?.startTracking(data);
       if (entry) this.sync?.syncEntry(entry.id).catch(() => {});
       return entry;
@@ -950,12 +954,12 @@ class TimeTrackApp {
       return this.db?.getProjectPrograms(projectId) ?? [];
     });
 
-    ipcMain.handle(IPC_CHANNELS.ADD_PROJECT_PROGRAM, async (_, projectId: string, processName: string, displayName: string) => {
-      const result = this.db?.addProjectProgram(projectId, processName, displayName);
+    ipcMain.handle(IPC_CHANNELS.ADD_PROJECT_PROGRAM, async (_, projectId: string | null, processName: string, displayName: string) => {
+      const result = this.db?.addProjectProgram(projectId ?? null, processName, displayName);
       if (result && this.pg?.isConnected()) {
         await this.pg.upsertProjectProgram({
           id: result.id,
-          project_id: projectId,
+          project_id: projectId ?? null,
           process_name: processName,
           display_name: displayName,
         });

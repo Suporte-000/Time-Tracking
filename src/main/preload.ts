@@ -177,7 +177,7 @@ const api = {
   getProjectPrograms: (projectId?: string): Promise<any[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.GET_PROJECT_PROGRAMS, projectId),
 
-  addProjectProgram: (projectId: string, processName: string, displayName: string): Promise<any> =>
+  addProjectProgram: (projectId: string | null, processName: string, displayName: string): Promise<any> =>
     ipcRenderer.invoke(IPC_CHANNELS.ADD_PROJECT_PROGRAM, projectId, processName, displayName),
 
   removeProjectProgram: (id: string): Promise<boolean> =>

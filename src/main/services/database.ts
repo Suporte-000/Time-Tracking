@@ -112,18 +112,38 @@ export class DatabaseService {
       )
     `);
 
-    // Project programs table (admin links process names to projects)
+    // Project programs table (admin links process names to projects, projectId optional)
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS project_programs (
         id TEXT PRIMARY KEY,
-        projectId TEXT NOT NULL,
+        projectId TEXT,
         processName TEXT NOT NULL,
         displayName TEXT NOT NULL,
         createdAt TEXT NOT NULL,
-        FOREIGN KEY (projectId) REFERENCES projects(id),
-        UNIQUE(projectId, processName)
+        UNIQUE(processName)
       )
     `);
+
+    // Migrate: drop old NOT NULL constraint if upgrading (recreate table)
+    try {
+      const info = this.db.prepare("PRAGMA table_info(project_programs)").all() as any[];
+      const col = info.find((c: any) => c.name === 'projectId');
+      if (col && col.notnull === 1) {
+        this.db.exec(`
+          ALTER TABLE project_programs RENAME TO project_programs_old;
+          CREATE TABLE project_programs (
+            id TEXT PRIMARY KEY,
+            projectId TEXT,
+            processName TEXT NOT NULL,
+            displayName TEXT NOT NULL,
+            createdAt TEXT NOT NULL,
+            UNIQUE(processName)
+          );
+          INSERT OR IGNORE INTO project_programs SELECT id, projectId, processName, displayName, createdAt FROM project_programs_old;
+          DROP TABLE project_programs_old;
+        `);
+      }
+    } catch { /* already migrated */ }
 
     // Team members table
     this.db.exec(`
@@ -281,12 +301,12 @@ export class DatabaseService {
   }
 
   // Upsert a project program from PostgreSQL (used during pull sync)
-  upsertProjectProgram(prog: { id: string; projectId: string; processName: string; displayName: string }): void {
+  upsertProjectProgram(prog: { id: string; projectId: string | null; processName: string; displayName: string }): void {
     this.db.prepare(
       `INSERT INTO project_programs (id, projectId, processName, displayName, createdAt)
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(projectId, processName) DO UPDATE SET displayName=excluded.displayName, id=excluded.id`
-    ).run(prog.id, prog.projectId, prog.processName, prog.displayName, new Date().toISOString());
+       ON CONFLICT(processName) DO UPDATE SET displayName=excluded.displayName, projectId=excluded.projectId, id=excluded.id`
+    ).run(prog.id, prog.projectId ?? null, prog.processName, prog.displayName, new Date().toISOString());
   }
 
   /**
@@ -427,7 +447,7 @@ export class DatabaseService {
 
   startTracking(data: {
     userId: string;
-    projectId: string;
+    projectId: string | null;
     appName: string;
     processName: string;
   }): TimeEntry {
@@ -529,26 +549,31 @@ export class DatabaseService {
     if (projectId) {
       return this.db.prepare('SELECT * FROM project_programs WHERE projectId = ? ORDER BY displayName').all(projectId) as any[];
     }
-    return this.db.prepare('SELECT pp.*, p.name as projectName, p.color as projectColor FROM project_programs pp JOIN projects p ON pp.projectId = p.id ORDER BY p.name, pp.displayName').all() as any[];
+    return this.db.prepare(`
+      SELECT pp.*, p.name as projectName, p.color as projectColor
+      FROM project_programs pp
+      LEFT JOIN projects p ON pp.projectId = p.id
+      ORDER BY p.name NULLS LAST, pp.displayName
+    `).all() as any[];
   }
 
-  getProjectByProcess(processName: string): { projectId: string; projectName: string; displayName: string } | null {
+  getProjectByProcess(processName: string): { projectId: string | null; projectName: string | null; displayName: string } | null {
     const row = this.db.prepare(`
       SELECT pp.projectId, p.name as projectName, pp.displayName
       FROM project_programs pp
-      JOIN projects p ON pp.projectId = p.id
-      WHERE pp.processName = ? COLLATE NOCASE AND p.isActive = 1
+      LEFT JOIN projects p ON pp.projectId = p.id
+      WHERE pp.processName = ? COLLATE NOCASE
       LIMIT 1
     `).get(processName) as any;
     return row || null;
   }
 
-  addProjectProgram(projectId: string, processName: string, displayName: string): any {
+  addProjectProgram(projectId: string | null, processName: string, displayName: string): any {
     const id = this.generateId();
     const createdAt = new Date().toISOString();
-    this.db.prepare('INSERT OR IGNORE INTO project_programs (id, projectId, processName, displayName, createdAt) VALUES (?, ?, ?, ?, ?)')
-      .run(id, projectId, processName, displayName, createdAt);
-    return { id, projectId, processName, displayName, createdAt };
+    this.db.prepare('INSERT OR REPLACE INTO project_programs (id, projectId, processName, displayName, createdAt) VALUES (?, ?, ?, ?, ?)')
+      .run(id, projectId ?? null, processName, displayName, createdAt);
+    return { id, projectId: projectId ?? null, processName, displayName, createdAt };
   }
 
   removeProjectProgram(id: string): boolean {

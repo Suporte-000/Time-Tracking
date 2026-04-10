@@ -122,7 +122,7 @@ const ProjectModal: React.FC<{
 
 // ── Add Program modal ────────────────────────────────────────────────────────
 const AddProgramModal: React.FC<{
-  projectName: string;
+  projectName?: string;
   onSave: (processName: string, displayName: string) => void;
   onClose: () => void;
 }> = ({ projectName, onSave, onClose }) => {
@@ -162,7 +162,8 @@ const AddProgramModal: React.FC<{
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
       <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px 32px', width:'420px' }}>
         <div style={{ fontSize:'16px', fontWeight:700, color:'#E8F6F5', marginBottom:'4px' }}>{t('modal.addProgram')}</div>
-        <div style={{ fontSize:'12px', color:'#718096', marginBottom:'16px' }}>{t('modal.linkedTo')}: {projectName}</div>
+        {projectName && <div style={{ fontSize:'12px', color:'#718096', marginBottom:'16px' }}>{t('modal.linkedTo')}: {projectName}</div>}
+        {!projectName && <div style={{ fontSize:'12px', color:'#4A5568', marginBottom:'16px' }}>{t('modal.noProject')}</div>}
 
         {/* Running apps picker */}
         <label style={labelStyle}>Select Running Program</label>
@@ -306,7 +307,8 @@ const Management: React.FC = () => {
   const [showChangePin, setShowChangePin] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editProject, setEditProject] = useState<any | null>(null);
-  const [addProgramFor, setAddProgramFor] = useState<any | null>(null);
+  const [addProgramFor, setAddProgramFor] = useState<any | null>(null); // project object or true (standalone)
+  const [showAddStandaloneProgram, setShowAddStandaloneProgram] = useState(false);
   const [adjustEntry, setAdjustEntry] = useState<TeamTimeEntry | null>(null);
   const [adjustMember, setAdjustMember] = useState<TeamMember | null>(null);
 
@@ -413,8 +415,15 @@ const Management: React.FC = () => {
   };
 
   const handleAddProgram = async (processName: string, displayName: string) => {
-    await window.electron.addProjectProgram(addProgramFor.id, processName, displayName);
+    const projectId = addProgramFor && addProgramFor !== true ? addProgramFor.id : null;
+    await window.electron.addProjectProgram(projectId, processName, displayName);
     setAddProgramFor(null);
+    await loadAll(selectedDate);
+  };
+
+  const handleAddStandaloneProgram = async (processName: string, displayName: string) => {
+    await window.electron.addProjectProgram(null, processName, displayName);
+    setShowAddStandaloneProgram(false);
     await loadAll(selectedDate);
   };
 
@@ -491,7 +500,10 @@ const Management: React.FC = () => {
         <ProjectModal project={editProject} onSave={handleCreateProject} onClose={() => { setShowProjectModal(false); setEditProject(null); }} />
       )}
       {addProgramFor && (
-        <AddProgramModal projectName={addProgramFor.name} onSave={handleAddProgram} onClose={() => setAddProgramFor(null)} />
+        <AddProgramModal projectName={addProgramFor !== true ? addProgramFor.name : undefined} onSave={handleAddProgram} onClose={() => setAddProgramFor(null)} />
+      )}
+      {showAddStandaloneProgram && (
+        <AddProgramModal onSave={handleAddStandaloneProgram} onClose={() => setShowAddStandaloneProgram(false)} />
       )}
       {adjustMember && !adjustEntry && (
         <EntryPickerModal
@@ -573,11 +585,42 @@ const Management: React.FC = () => {
 
         /* ── PROJECTS TAB ── */
         <div>
-          <div style={{ display:'flex', gap:'10px', marginBottom:'16px' }}>
+          {/* Action buttons row */}
+          <div style={{ display:'flex', gap:'10px', marginBottom:'16px', flexWrap:'wrap' }}>
             <button className="btn btn-primary" onClick={() => setShowProjectModal(true)}>{t('management.newProject')}</button>
             <button className="btn" onClick={() => importRef.current?.click()}>{t('management.importCsv')}</button>
+            <button className="btn" style={{ marginLeft:'auto' }} onClick={() => setShowAddStandaloneProgram(true)}>
+              🖥 {t('management.registerProgram')}
+            </button>
             <input ref={importRef} type="file" accept=".txt,.csv" style={{ display:'none' }} onChange={handleImportCSV} />
           </div>
+
+          {/* Standalone programs (not linked to any project) */}
+          {(() => {
+            const standalone = programs.filter(p => !p.projectId);
+            if (standalone.length === 0) return null;
+            return (
+              <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', marginBottom:'16px', overflow:'hidden' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'12px', padding:'12px 16px', borderBottom:'1px solid #1A1F2B', background:'#111520' }}>
+                  <span style={{ fontSize:'14px' }}>🖥</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:'13px', fontWeight:600, color:'#A0AEC0' }}>{t('management.standalonePrograms')}</div>
+                    <div style={{ fontSize:'11px', color:'#4A5568' }}>{t('management.standaloneSub')}</div>
+                  </div>
+                </div>
+                {standalone.map(prog => (
+                  <div key={prog.id} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'9px 16px 9px 20px', borderBottom:'1px solid #111722' }}>
+                    <span style={{ fontSize:'13px' }}>🖥️</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:'13px', color:'#CBD5E0' }}>{prog.displayName}</div>
+                      <div style={{ fontSize:'11px', color:'#4A5568' }}>{prog.processName}.exe</div>
+                    </div>
+                    <button onClick={() => handleRemoveProgram(prog.id)} style={{ background:'none', border:'none', color:'#4A5568', cursor:'pointer', fontSize:'13px' }} title="Remove">✕</button>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {projects.length === 0 ? (
             <div style={{ color:'#4A5568', textAlign:'center', padding:'40px' }}>{t('management.noProjects')}</div>
