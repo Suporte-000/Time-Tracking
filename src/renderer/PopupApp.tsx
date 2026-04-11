@@ -48,7 +48,6 @@ const PopupApp: React.FC = () => {
         appName,
         processName,
       });
-      window.electron.showMainWindow?.();
       window.close();
     } catch (error) {
       console.error('Failed to start tracking:', error);

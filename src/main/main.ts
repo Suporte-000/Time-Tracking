@@ -176,7 +176,7 @@ class TimeTrackApp {
     this.sync = new SyncService(this.pg, this.db);
     this.pg.connect().then(async ok => {
       if (ok) {
-        console.log('[Postgres] Connected to Railway');
+        console.log('[Postgres] Connected to DATABASE');
         // Restore user-config.json if it was deleted (ID recovery)
         await this.sync?.tryRestoreLocalUser();
         // Pull shared data (projects, programs, members) from PostgreSQL into local SQLite
