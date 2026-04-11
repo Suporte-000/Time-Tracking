@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification, shell, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification, shell, screen, powerMonitor } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { WindowMonitor } from './services/windowMonitor';
@@ -235,7 +235,12 @@ class TimeTrackApp {
     });
 
     // Stop all active tracking when app quits
-    app.on('before-quit', async () => {
+    let isQuitting = false;
+    app.on('before-quit', (e) => {
+      if (isQuitting) return; // second call — let it proceed
+      e.preventDefault();
+      isQuitting = true;
+
       console.log('[App] Quitting — stopping all active tracking entries');
       // Clear intervals
       if (this.syncInterval) clearInterval(this.syncInterval);
@@ -243,18 +248,22 @@ class TimeTrackApp {
       // Clear popup timers
       for (const timer of this.popupTimers.values()) clearTimeout(timer);
       this.popupTimers.clear();
-      // Stop all active entries
+      // Stop all active entries synchronously (SQLite is sync)
       const entries = this.db?.getTimeEntries() || [];
       const active = entries.filter(e => !e.endTime);
       for (const entry of active) {
         this.db?.stopTracking(entry.id, 'auto');
         console.log(`[App] Auto-stopped tracking: ${entry.processName}`);
       }
-      // Final sync
-      if (this.pg?.isConnected()) {
-        try { await this.sync?.syncAllTodayEntries(); } catch {}
-      }
-      await this.pg?.close();
+      // Final async sync, then actually quit
+      const finish = async () => {
+        if (this.pg?.isConnected()) {
+          try { await this.sync?.syncAllTodayEntries(); } catch {}
+          await this.pg?.close();
+        }
+        app.quit();
+      };
+      finish();
     });
   }
 
@@ -298,10 +307,16 @@ class TimeTrackApp {
       }
     });
 
-    // Intercept OS close button — hide to tray instead of quitting
+    // Intercept OS close button — hide to tray if minimizeToTray is on, otherwise quit
     this.mainWindow.on('close', (e) => {
-      e.preventDefault();
-      this.mainWindow?.hide();
+      const config = this.db?.getConfig();
+      if (config?.minimizeToTray) {
+        e.preventDefault();
+        this.mainWindow?.hide();
+      } else {
+        // Actually quit — before-quit will stop all active tracking
+        app.quit();
+      }
     });
 
     this.mainWindow.on('closed', () => {
@@ -476,6 +491,28 @@ class TimeTrackApp {
     // Start monitoring
     this.windowMonitor.start();
     this.activityMonitor.start();
+
+    // Stop all active tracking when system sleeps — user cannot work while asleep
+    powerMonitor.on('suspend', () => {
+      console.log('[Power] System suspending — stopping all active tracking');
+      const entries = this.db?.getTimeEntries() || [];
+      for (const entry of entries.filter(e => !e.endTime)) {
+        this.db?.stopTracking(entry.id, 'auto');
+        this.sync?.syncEntry(entry.id).catch(() => {});
+        console.log(`[Power] Auto-stopped tracking: ${entry.processName}`);
+      }
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send(IPC_CHANNELS.USER_INACTIVE);
+      }
+    });
+
+    // When system wakes up, notify renderer to refresh
+    powerMonitor.on('resume', () => {
+      console.log('[Power] System resumed from sleep');
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send(IPC_CHANNELS.USER_ACTIVE);
+      }
+    });
 
     // Auto-stop tracking when the tracked process exits
     if (process.platform === 'win32') {
