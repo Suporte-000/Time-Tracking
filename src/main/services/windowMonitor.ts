@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -10,45 +11,132 @@ export interface ActiveWindow {
   timestamp: string;
 }
 
-// PowerShell script using Win32 GetForegroundWindow API — gets the ACTUAL focused window
-const PS_GET_FOREGROUND = `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-using System.Text;
-public class WinForeground {
-  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-  [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int pid);
-  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder buf, int max);
-}
-"@
-$hwnd = [WinForeground]::GetForegroundWindow()
-$pid = 0
-[WinForeground]::GetWindowThreadProcessId($hwnd, [ref]$pid) | Out-Null
-$sb = New-Object System.Text.StringBuilder 512
-[WinForeground]::GetWindowText($hwnd, $sb, 512) | Out-Null
-$proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
-if ($proc) {
-  [PSCustomObject]@{ ProcessName = $proc.ProcessName; WindowTitle = $sb.ToString(); PID = $pid } | ConvertTo-Json -Compress
-}
-`.trim();
+// ── Native Win32 helpers (ffi-napi) ──────────────────────────────────────────
+let _ffi: any = null;
+let _ref: any = null;
+let _user32: any = null;
+let _kernel32: any = null;
+let _psapi: any = null;
+let _nativeReady = false;
 
-// Pre-encode the PowerShell script as Base64 (UTF-16LE) to avoid all quoting issues
-const PS_ENCODED = Buffer.from(PS_GET_FOREGROUND, 'utf16le').toString('base64');
+function loadNative() {
+  if (_nativeReady) return true;
+  try {
+    _ffi = require('ffi-napi');
+    _ref = require('ref-napi');
 
+    _user32 = _ffi.Library('user32', {
+      GetForegroundWindow: ['pointer', []],
+      GetWindowThreadProcessId: ['uint32', ['pointer', _ref.refType('int32')]],
+      GetWindowTextW: ['int', ['pointer', 'pointer', 'int']],
+    });
+
+    _kernel32 = _ffi.Library('kernel32', {
+      OpenProcess: ['pointer', ['uint32', 'bool', 'int32']],
+      QueryFullProcessImageNameW: ['bool', ['pointer', 'uint32', 'pointer', _ref.refType('uint32')]],
+      CloseHandle: ['bool', ['pointer']],
+    });
+
+    _nativeReady = true;
+    console.log('[WindowMonitor] Using native Win32 API (ffi-napi)');
+    return true;
+  } catch (e: any) {
+    console.warn('[WindowMonitor] ffi-napi not available, falling back to PowerShell:', e.message);
+    return false;
+  }
+}
+
+function getNativeActiveWindow(): ActiveWindow | null {
+  try {
+    const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    // Get foreground window handle
+    const hwnd = _user32.GetForegroundWindow();
+    if (!hwnd || hwnd.isNull()) return null;
+
+    // Get title
+    const titleBuf = Buffer.alloc(1024);
+    _user32.GetWindowTextW(hwnd, titleBuf, 512);
+    const windowTitle = titleBuf.toString('ucs2').replace(/\0/g, '').trim();
+
+    // Get PID
+    const pidBuf = _ref.alloc('int32', 0);
+    _user32.GetWindowThreadProcessId(hwnd, pidBuf);
+    const pid = pidBuf.deref();
+    if (!pid) return null;
+
+    // Get process name from full path
+    const hProc = _kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+    if (!hProc || hProc.isNull()) return null;
+
+    let processName = '';
+    try {
+      const pathBuf = Buffer.alloc(1024);
+      const lenBuf = _ref.alloc('uint32', 512);
+      const ok = _kernel32.QueryFullProcessImageNameW(hProc, 0, pathBuf, lenBuf);
+      if (ok) {
+        const fullPath = pathBuf.toString('ucs2').replace(/\0/g, '').trim();
+        processName = path.basename(fullPath, '.exe');
+      }
+    } finally {
+      _kernel32.CloseHandle(hProc);
+    }
+
+    if (!processName) return null;
+
+    return {
+      processName,
+      windowTitle,
+      timestamp: new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ── Fallback: PowerShell (no Add-Type, uses Get-Process) ─────────────────────
+// Only used if ffi-napi fails to load.
+const PS_FALLBACK_SCRIPT = `$id = (Get-Process | Where-Object {$_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne ''} | Sort-Object CPU -Descending | Select-Object -First 1); if ($id) { "$($id.ProcessName)|$($id.MainWindowTitle)" }`;
+const PS_FALLBACK_ENCODED = Buffer.from(PS_FALLBACK_SCRIPT, 'utf16le').toString('base64');
+
+async function getPsActiveWindow(): Promise<ActiveWindow | null> {
+  try {
+    const { stdout } = await execAsync(
+      `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_FALLBACK_ENCODED}`,
+      { timeout: 4000, windowsHide: true }
+    );
+    const line = stdout.trim();
+    if (!line) return null;
+    const idx = line.indexOf('|');
+    if (idx < 0) return null;
+    return {
+      processName: line.substring(0, idx).trim(),
+      windowTitle: line.substring(idx + 1).trim(),
+      timestamp: new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ── WindowMonitor ─────────────────────────────────────────────────────────────
 export class WindowMonitor extends EventEmitter {
   private intervalId: NodeJS.Timeout | null = null;
   private pollInterval: number = 1000;
   private lastActiveWindow: ActiveWindow | null = null;
+  private useNative: boolean = false;
 
   constructor(pollInterval: number = 1000) {
     super();
     this.pollInterval = pollInterval;
+    if (process.platform === 'win32') {
+      this.useNative = loadNative();
+    }
   }
 
   start() {
     if (this.intervalId) return;
-    console.log('WindowMonitor started (GetForegroundWindow)');
+    console.log(`WindowMonitor started (${this.useNative ? 'ffi-napi/Win32' : 'PowerShell fallback'})`);
     this.intervalId = setInterval(() => this.checkActiveWindow(), this.pollInterval);
     this.checkActiveWindow();
   }
@@ -62,26 +150,16 @@ export class WindowMonitor extends EventEmitter {
 
   private async checkActiveWindow() {
     try {
-      let activeWindow: ActiveWindow;
+      let activeWindow: ActiveWindow | null = null;
 
       if (process.platform === 'win32') {
-        const { stdout } = await execAsync(
-          `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_ENCODED}`,
-          { timeout: 4000, windowsHide: true }
-        );
-
-        if (!stdout.trim()) return;
-
-        const result = JSON.parse(stdout.trim());
-        if (!result?.ProcessName) return;
-
-        activeWindow = {
-          processName: result.ProcessName,
-          windowTitle: result.WindowTitle || '',
-          timestamp: new Date().toISOString(),
-        };
+        if (this.useNative) {
+          activeWindow = getNativeActiveWindow();
+        } else {
+          activeWindow = await getPsActiveWindow();
+        }
       } else {
-        // Linux/Mac dev fallback — simulate VS Code in focus
+        // Linux/Mac dev fallback
         activeWindow = {
           processName: 'Code',
           windowTitle: 'TimeTrack Development',
@@ -89,12 +167,14 @@ export class WindowMonitor extends EventEmitter {
         };
       }
 
+      if (!activeWindow) return;
+
       if (this.hasWindowChanged(activeWindow)) {
         this.lastActiveWindow = activeWindow;
         this.emit('window-changed', activeWindow);
       }
     } catch {
-      // Silently ignore — PowerShell errors are transient
+      // Silently ignore transient errors
     }
   }
 
@@ -107,25 +187,8 @@ export class WindowMonitor extends EventEmitter {
   }
 
   async getCurrentWindow(): Promise<ActiveWindow | null> {
-    try {
-      if (process.platform !== 'win32') return null;
-
-      const { stdout } = await execAsync(
-        `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_ENCODED}`,
-        { timeout: 4000, windowsHide: true }
-      );
-
-      if (!stdout.trim()) return null;
-      const result = JSON.parse(stdout.trim());
-      if (!result?.ProcessName) return null;
-
-      return {
-        processName: result.ProcessName,
-        windowTitle: result.WindowTitle || '',
-        timestamp: new Date().toISOString(),
-      };
-    } catch {
-      return null;
-    }
+    if (process.platform !== 'win32') return null;
+    if (this.useNative) return getNativeActiveWindow();
+    return getPsActiveWindow();
   }
 }

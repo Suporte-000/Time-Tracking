@@ -84,16 +84,87 @@ console.log = (...a) => { _origLog(...a); writeLog('INFO', a); };
 console.warn = (...a) => { _origWarn(...a); writeLog('WARN', a); };
 console.error = (...a) => { _origError(...a); writeLog('ERROR', a); };
 
-// PowerShell helper — returns process names, one per line
+// PowerShell helper — returns process names, one per line (used for scan/check)
 function psGetProcessNames(): string {
   const script = `Get-Process | Select-Object -ExpandProperty Name`;
   return `powershell -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script, 'utf16le').toString('base64')}`;
 }
 
-// PowerShell helper — returns "Name,MainWindowTitle" CSV for processes with a visible window
-function psGetProcessesWithWindows(): string {
-  const script = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object Name,MainWindowTitle | ConvertTo-Csv -NoTypeInformation`;
-  return `powershell -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script, 'utf16le').toString('base64')}`;
+// ── Native Win32 helpers for running-apps enumeration ────────────────────────
+let _win32Libs: { ffi: any; ref: any; user32: any; kernel32: any } | null = null;
+
+function loadWin32Libs() {
+  if (_win32Libs) return _win32Libs;
+  try {
+    const ffi = require('ffi-napi');
+    const ref = require('ref-napi');
+    const user32 = ffi.Library('user32', {
+      EnumWindows: ['bool', ['pointer', 'int64']],
+      IsWindowVisible: ['bool', ['pointer']],
+      GetWindowTextW: ['int', ['pointer', 'pointer', 'int']],
+      GetWindowThreadProcessId: ['uint32', ['pointer', ref.refType('int32')]],
+    });
+    const kernel32 = ffi.Library('kernel32', {
+      OpenProcess: ['pointer', ['uint32', 'bool', 'int32']],
+      QueryFullProcessImageNameW: ['bool', ['pointer', 'uint32', 'pointer', ref.refType('uint32')]],
+      CloseHandle: ['bool', ['pointer']],
+    });
+    _win32Libs = { ffi, ref, user32, kernel32 };
+    return _win32Libs;
+  } catch {
+    return null;
+  }
+}
+
+function getRunningAppsNative(): { processName: string; windowTitle: string; icon: string }[] {
+  const libs = loadWin32Libs();
+  if (!libs) return [];
+  const { ffi, ref, user32, kernel32 } = libs;
+  const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+  const seen = new Set<string>();
+  const apps: { processName: string; windowTitle: string; icon: string }[] = [];
+
+  const callback = ffi.Callback('bool', ['pointer', 'int64'], (hwnd: any) => {
+    try {
+      if (!user32.IsWindowVisible(hwnd)) return true;
+      const titleBuf = Buffer.alloc(1024);
+      const len = user32.GetWindowTextW(hwnd, titleBuf, 512);
+      if (len === 0) return true;
+      const windowTitle = titleBuf.toString('ucs2').replace(/\0/g, '').trim();
+      if (!windowTitle) return true;
+
+      const pidBuf = ref.alloc('int32', 0);
+      user32.GetWindowThreadProcessId(hwnd, pidBuf);
+      const pid = pidBuf.deref();
+      if (!pid) return true;
+
+      const hProc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+      if (!hProc || hProc.isNull()) return true;
+
+      try {
+        const pathBuf = Buffer.alloc(1024);
+        const lenBuf = ref.alloc('uint32', 512);
+        const ok = kernel32.QueryFullProcessImageNameW(hProc, 0, pathBuf, lenBuf);
+        if (!ok) return true;
+        const fullPath = pathBuf.toString('ucs2').replace(/\0/g, '').trim();
+        const processName = require('path').basename(fullPath, '.exe');
+        const key = processName.toLowerCase();
+        if (key === 'timetrack' || key === 'applicationframehost') return true;
+        if (!seen.has(key)) {
+          seen.add(key);
+          apps.push({ processName, windowTitle, icon: '🖥️' });
+        }
+      } finally {
+        kernel32.CloseHandle(hProc);
+      }
+    } catch { /* skip this window */ }
+    return true;
+  });
+
+  user32.EnumWindows(callback, 0);
+  // Keep callback reference alive until EnumWindows returns
+  void callback;
+  return apps;
 }
 
 class TimeTrackApp {
@@ -865,29 +936,7 @@ class TimeTrackApp {
     ipcMain.handle(IPC_CHANNELS.GET_RUNNING_APPS, async () => {
       if (process.platform !== 'win32') return [];
       try {
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
-
-        const { stdout } = await execAsync(psGetProcessesWithWindows(), { timeout: 8000, windowsHide: true });
-
-        const seen = new Set<string>();
-        const apps: { processName: string; windowTitle: string; icon: string }[] = [];
-        const lines = stdout.trim().split(/\r?\n/).slice(1); // skip CSV header
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const cols = line.match(/("(?:[^"]|"")*"|[^,]*)/g) || [];
-          const name = cols[0]?.replace(/^"|"$/g, '').trim();
-          const title = cols[1]?.replace(/^"|"$/g, '').trim();
-          if (!name || !title) continue;
-          if (name.toLowerCase() === 'timetrack') continue;
-          const key = name.toLowerCase();
-          if (!seen.has(key)) {
-            seen.add(key);
-            apps.push({ processName: name, windowTitle: title, icon: '🖥️' });
-          }
-        }
+        const apps = getRunningAppsNative();
         console.log(`[RunningApps] Found ${apps.length} apps with windows`);
         return apps;
       } catch (err: any) {
