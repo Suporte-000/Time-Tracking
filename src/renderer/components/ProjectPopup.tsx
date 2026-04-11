@@ -258,7 +258,7 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
 
 // ── Shared styles ──────────────────────────────────────────────────────────
 const cardStyle: React.CSSProperties = {
-  width: '100%',
+  width: '400px',
   background: '#161C26',
   borderRadius: '14px',
   border: '1px solid #1E2A3A',

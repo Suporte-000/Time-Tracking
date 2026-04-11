@@ -84,6 +84,18 @@ console.log = (...a) => { _origLog(...a); writeLog('INFO', a); };
 console.warn = (...a) => { _origWarn(...a); writeLog('WARN', a); };
 console.error = (...a) => { _origError(...a); writeLog('ERROR', a); };
 
+// PowerShell helper — returns process names, one per line
+function psGetProcessNames(): string {
+  const script = `Get-Process | Select-Object -ExpandProperty Name`;
+  return `powershell -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script, 'utf16le').toString('base64')}`;
+}
+
+// PowerShell helper — returns "Name,MainWindowTitle" CSV for processes with a visible window
+function psGetProcessesWithWindows(): string {
+  const script = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object Name,MainWindowTitle | ConvertTo-Csv -NoTypeInformation`;
+  return `powershell -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script, 'utf16le').toString('base64')}`;
+}
+
 class TimeTrackApp {
   private mainWindow: BrowserWindow | null = null;
   private popupWindow: BrowserWindow | null = null;
@@ -455,10 +467,10 @@ class TimeTrackApp {
       const { exec } = require('child_process');
       const { promisify } = require('util');
       const execAsync = promisify(exec);
-      const { stdout } = await execAsync('tasklist /fo csv /nh', { timeout: 5000, windowsHide: true });
+      const { stdout } = await execAsync(psGetProcessNames(), { timeout: 8000, windowsHide: true });
       const running = new Set(
         stdout.split(/\r?\n/)
-          .map((l: string) => l.split(',')[0]?.replace(/"/g, '').replace(/\.exe$/i, '').toLowerCase())
+          .map((l: string) => l.trim().toLowerCase())
           .filter(Boolean)
       );
 
@@ -519,10 +531,10 @@ class TimeTrackApp {
       const { exec } = require('child_process');
       const { promisify } = require('util');
       const execAsync = promisify(exec);
-      const { stdout } = await execAsync('tasklist /fo csv /nh', { timeout: 5000, windowsHide: true });
+      const { stdout } = await execAsync(psGetProcessNames(), { timeout: 8000, windowsHide: true });
       const running = new Set(
         stdout.split(/\r?\n/)
-          .map((l: string) => l.split(',')[0]?.replace(/"/g, '').replace(/\.exe$/i, '').toLowerCase())
+          .map((l: string) => l.trim().toLowerCase())
           .filter(Boolean)
       );
 
@@ -672,7 +684,7 @@ class TimeTrackApp {
 
 
     const { workArea } = screen.getPrimaryDisplay();
-    const popupWidth = 360;
+    const popupWidth = 400;
     const popupHeight = 480;
     const margin = 12;
     const x = workArea.x + workArea.width - popupWidth - margin;
@@ -681,6 +693,8 @@ class TimeTrackApp {
     this.popupWindow = new BrowserWindow({
       width: popupWidth,
       height: popupHeight,
+      minWidth: popupWidth,
+      maxWidth: popupWidth,
       x,
       y,
       resizable: false,
@@ -849,49 +863,35 @@ class TimeTrackApp {
 
     // Running apps — queries Windows for all processes with a visible window
     ipcMain.handle(IPC_CHANNELS.GET_RUNNING_APPS, async () => {
-      console.log('GET_RUNNING_APPS called, platform:', process.platform);
-      if (process.platform !== 'win32') {
-        console.log('GET_RUNNING_APPS: not win32, returning []');
-        return [];
-      }
+      if (process.platform !== 'win32') return [];
       try {
         const { exec } = require('child_process');
         const { promisify } = require('util');
         const execAsync = promisify(exec);
 
-        console.log('GET_RUNNING_APPS: running tasklist...');
-        const { stdout, stderr } = await execAsync(
-          'tasklist /v /fo csv /nh',
-          { timeout: 8000, windowsHide: true }
-        );
-        console.log('GET_RUNNING_APPS: tasklist stderr:', stderr || '(none)');
-        console.log('GET_RUNNING_APPS: tasklist stdout length:', stdout?.length);
-        console.log('GET_RUNNING_APPS: first 300 chars:', stdout?.substring(0, 300));
+        const { stdout } = await execAsync(psGetProcessesWithWindows(), { timeout: 8000, windowsHide: true });
 
         const seen = new Set<string>();
         const apps: { processName: string; windowTitle: string; icon: string }[] = [];
-        const lines = stdout.trim().split(/\r?\n/);
-        console.log('GET_RUNNING_APPS: total lines:', lines.length);
+        const lines = stdout.trim().split(/\r?\n/).slice(1); // skip CSV header
 
         for (const line of lines) {
           if (!line.trim()) continue;
-          const cols = line.match(/(".*?"|[^,]+)(?=,|$)/g) || [];
-          const exeName = cols[0]?.replace(/"/g, '').replace(/\.exe$/i, '').trim();
-          const windowTitle = cols[8]?.replace(/"/g, '').trim();
-          if (!exeName || !windowTitle || windowTitle === 'N/A') continue;
-          if (exeName.toLowerCase() === 'timetrack') continue;
-          const key = exeName.toLowerCase();
+          const cols = line.match(/("(?:[^"]|"")*"|[^,]*)/g) || [];
+          const name = cols[0]?.replace(/^"|"$/g, '').trim();
+          const title = cols[1]?.replace(/^"|"$/g, '').trim();
+          if (!name || !title) continue;
+          if (name.toLowerCase() === 'timetrack') continue;
+          const key = name.toLowerCase();
           if (!seen.has(key)) {
             seen.add(key);
-            apps.push({ processName: exeName, windowTitle, icon: '🖥️' });
+            apps.push({ processName: name, windowTitle: title, icon: '🖥️' });
           }
         }
-        console.log('GET_RUNNING_APPS: result count:', apps.length);
-        console.log('GET_RUNNING_APPS: apps:', JSON.stringify(apps.slice(0, 5)));
+        console.log(`[RunningApps] Found ${apps.length} apps with windows`);
         return apps;
       } catch (err: any) {
-        console.error('GET_RUNNING_APPS exception:', err?.message || err);
-        console.error('GET_RUNNING_APPS stack:', err?.stack);
+        console.error('[RunningApps] Error:', err?.message || err);
         return [];
       }
     });
