@@ -85,9 +85,23 @@ console.warn = (...a) => { _origWarn(...a); writeLog('WARN', a); };
 console.error = (...a) => { _origError(...a); writeLog('ERROR', a); };
 
 // PowerShell helper — returns process names, one per line (used for scan/check)
-function psGetProcessNames(): string {
-  const script = `Get-Process | Select-Object -ExpandProperty Name`;
-  return `powershell -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script, 'utf16le').toString('base64')}`;
+const PS_PROCESS_NAMES_ENCODED = Buffer.from(`Get-Process | Select-Object -ExpandProperty Name`, 'utf16le').toString('base64');
+
+// Shared mutex: only one psGetProcessNames call at a time
+let _psNamesPromise: Promise<Set<string>> | null = null;
+function psGetRunningNames(): Promise<Set<string>> {
+  if (_psNamesPromise) return _psNamesPromise;
+  const { exec } = require('child_process');
+  const { promisify } = require('util');
+  const execA = promisify(exec);
+  const p: Promise<Set<string>> = execA(
+    `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_PROCESS_NAMES_ENCODED}`,
+    { timeout: 10000, windowsHide: true }
+  ).then(({ stdout }: { stdout: string }) =>
+    new Set<string>(stdout.split(/\r?\n/).map((l: string) => l.trim().toLowerCase()).filter(Boolean))
+  ).catch(() => new Set<string>()).finally(() => { _psNamesPromise = null; });
+  _psNamesPromise = p;
+  return p;
 }
 
 // ── Running apps via PowerShell Get-Process (no ffi-napi needed) ─────────────
@@ -139,6 +153,9 @@ class TimeTrackApp {
   private currentActiveProcess: string | null = null;
   private syncInterval: NodeJS.Timeout | null = null;
   private processScanInterval: NodeJS.Timeout | null = null;
+  private _scanRunning = false;
+  private _checkRunning = false;
+  private _popupCooldown: Set<string> = new Set(); // processes with popup already open/recently shown
 
   constructor() {
     // Single instance lock — if another instance is already running, focus it and quit this one
@@ -234,36 +251,45 @@ class TimeTrackApp {
       }
     });
 
-    // Stop all active tracking when app quits
-    let isQuitting = false;
-    app.on('before-quit', (e) => {
-      if (isQuitting) return; // second call — let it proceed
-      e.preventDefault();
-      isQuitting = true;
-
-      console.log('[App] Quitting — stopping all active tracking entries');
-      // Clear intervals
+    // ── Synchronous stop of all active tracking (called on quit & will-quit) ──
+    const stopAllTracking = () => {
       if (this.syncInterval) clearInterval(this.syncInterval);
       if (this.processScanInterval) clearInterval(this.processScanInterval);
-      // Clear popup timers
       for (const timer of this.popupTimers.values()) clearTimeout(timer);
       this.popupTimers.clear();
-      // Stop all active entries synchronously (SQLite is sync)
       const entries = this.db?.getTimeEntries() || [];
       const active = entries.filter(e => !e.endTime);
       for (const entry of active) {
         this.db?.stopTracking(entry.id, 'auto');
-        console.log(`[App] Auto-stopped tracking: ${entry.processName}`);
+        console.log(`[App] Stopped tracking on quit: ${entry.processName}`);
       }
-      // Final async sync, then actually quit
+      return active.length;
+    };
+
+    // before-quit: stop tracking synchronously, then async-sync to PG, then actually quit
+    let isQuitting = false;
+    app.on('before-quit', (e) => {
+      if (isQuitting) return;
+      e.preventDefault();
+      isQuitting = true;
+
+      console.log('[App] Quitting — stopping all active tracking entries');
+      const stopped = stopAllTracking();
+      console.log(`[App] Stopped ${stopped} active entries`);
+
       const finish = async () => {
         if (this.pg?.isConnected()) {
           try { await this.sync?.syncAllTodayEntries(); } catch {}
-          await this.pg?.close();
+          try { await this.pg?.close(); } catch {}
         }
         app.quit();
       };
       finish();
+    });
+
+    // will-quit: last-resort synchronous stop in case before-quit was skipped
+    app.on('will-quit', () => {
+      stopAllTracking();
     });
   }
 
@@ -488,6 +514,15 @@ class TimeTrackApp {
       }
     });
 
+    // On startup: close any entries left open from a previous crash/unclean exit
+    const staleEntries = (this.db?.getTimeEntries() || []).filter(e => !e.endTime);
+    if (staleEntries.length > 0) {
+      console.log(`[App] Closing ${staleEntries.length} stale tracking entries from previous session`);
+      for (const entry of staleEntries) {
+        this.db?.stopTracking(entry.id, 'auto');
+      }
+    }
+
     // Start monitoring
     this.windowMonitor.start();
     this.activityMonitor.start();
@@ -514,9 +549,9 @@ class TimeTrackApp {
       }
     });
 
-    // Auto-stop tracking when the tracked process exits
+    // Auto-stop tracking when the tracked process exits (every 30s — not too frequent)
     if (process.platform === 'win32') {
-      setInterval(() => this.checkTrackedProcessStillRunning(), 5000);
+      setInterval(() => this.checkTrackedProcessStillRunning(), 30000);
     }
 
     // Every 2 minutes: scan running processes for any registered programs
@@ -527,19 +562,13 @@ class TimeTrackApp {
 
   private async scanRegisteredProcesses() {
     if (process.platform !== 'win32') return;
+    if (this._scanRunning) return; // already running, skip
+    this._scanRunning = true;
     try {
       const registeredPrograms = this.db?.getProjectPrograms() || [];
       if (registeredPrograms.length === 0) return;
 
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
-      const { stdout } = await execAsync(psGetProcessNames(), { timeout: 8000, windowsHide: true });
-      const running = new Set(
-        stdout.split(/\r?\n/)
-          .map((l: string) => l.trim().toLowerCase())
-          .filter(Boolean)
-      );
+      const running = await psGetRunningNames();
 
       const activeEntries = this.db?.getTimeEntries() || [];
       const activeProcesses = new Set(activeEntries.filter(e => !e.endTime).map(e => e.processName.toLowerCase()));
@@ -559,6 +588,8 @@ class TimeTrackApp {
 
         // Standalone (no project) → show popup for user to pick project
         if (!projectId) {
+          if (this._popupCooldown.has(prog.processName)) continue; // popup already open
+          this._popupCooldown.add(prog.processName);
           console.log(`[Scan] Standalone program "${prog.processName}" — showing popup`);
           this.createPopupWindow(displayName, prog.processName);
           break; // one at a time
@@ -586,24 +617,20 @@ class TimeTrackApp {
       }
     } catch (err) {
       console.warn('[Scan] scanRegisteredProcesses error:', err);
+    } finally {
+      this._scanRunning = false;
     }
   }
 
   private async checkTrackedProcessStillRunning() {
+    if (this._checkRunning) return;
+    this._checkRunning = true;
     try {
       const entries = this.db?.getTimeEntries() || [];
       const active = entries.filter(e => !e.endTime && e.processName);
       if (active.length === 0) return;
 
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
-      const { stdout } = await execAsync(psGetProcessNames(), { timeout: 8000, windowsHide: true });
-      const running = new Set(
-        stdout.split(/\r?\n/)
-          .map((l: string) => l.trim().toLowerCase())
-          .filter(Boolean)
-      );
+      const running = await psGetRunningNames();
 
       for (const entry of active) {
         const key = entry.processName.toLowerCase();
@@ -622,6 +649,8 @@ class TimeTrackApp {
       }
     } catch (err) {
       console.warn('checkTrackedProcessStillRunning error:', err);
+    } finally {
+      this._checkRunning = false;
     }
   }
 
@@ -671,6 +700,8 @@ class TimeTrackApp {
     if (!this.popupTimers.has(processName)) {
       // Standalone (no project linked) → show popup for user to pick project
       if (!linked.projectId) {
+        if (this._popupCooldown.has(processName)) return; // popup already open or recently shown
+        this._popupCooldown.add(processName);
         console.log(`[AutoTrack] Standalone program "${processName}" — showing popup`);
         this.createPopupWindow(linked.displayName, processName);
         return;
@@ -808,6 +839,11 @@ class TimeTrackApp {
 
     this.popupWindow.on('closed', () => {
       this.popupWindow = null;
+      // Release popup cooldown for processName after window closes
+      // Use a short delay so rapid re-open (window flicker) doesn't re-trigger
+      setTimeout(() => {
+        this._popupCooldown.delete(processName);
+      }, 10000); // 10s cooldown after popup closes before it can appear again
     });
   }
 

@@ -45,7 +45,7 @@ const PopupDemo: React.FC = () => {
         window.electron.getTimeEntries(today),
         window.electron.getProjectPrograms(),
       ]);
-      const active = new Set<string>((entries as TimeEntry[]).filter((e: TimeEntry) => !e.endTime).map((e: TimeEntry) => e.projectId));
+      const active = new Set<string>((entries as TimeEntry[]).filter((e: TimeEntry) => !e.endTime).map((e: TimeEntry) => e.projectId).filter((id): id is string => id !== null));
       setActiveProjectIds(active);
       const allDone = (projects as Project[]).length > 0 && (projects as Project[]).every((p: Project) => active.has(p.id));
       setAllTracking(allDone);
