@@ -11,12 +11,14 @@ const PopupDemo: React.FC = () => {
   const [activeProjectIds, setActiveProjectIds] = useState<Set<string>>(new Set());
   const [allTracking, setAllTracking] = useState(false);
   const [hasProjects, setHasProjects] = useState(false);
+  const [hasPrograms, setHasPrograms] = useState(false);
   const [detectedApp, setDetectedApp] = useState<{ appName: string; processName: string } | null>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const POPUP_DELAY_MS = 2 * 60 * 1000;
 
-  const scheduleAutoPopup = (projects: Project[], active: Set<string>) => {
+  const scheduleAutoPopup = (projects: Project[], active: Set<string>, programs: any[]) => {
     if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+    if (programs.length === 0) return; // no registered programs — don't schedule popup
     autoTimerRef.current = setTimeout(async () => {
       const allDone = projects.length > 0 && projects.every(p => active.has(p.id));
       if (allDone) return;
@@ -38,22 +40,26 @@ const PopupDemo: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       const today = new Date().toISOString().split('T')[0];
-      const [projects, entries] = await Promise.all([
+      const [projects, entries, programs] = await Promise.all([
         window.electron.getProjects(),
         window.electron.getTimeEntries(today),
+        window.electron.getProjectPrograms(),
       ]);
       const active = new Set<string>((entries as TimeEntry[]).filter((e: TimeEntry) => !e.endTime).map((e: TimeEntry) => e.projectId));
       setActiveProjectIds(active);
       const allDone = (projects as Project[]).length > 0 && (projects as Project[]).every((p: Project) => active.has(p.id));
       setAllTracking(allDone);
       setHasProjects((projects as Project[]).length > 0);
-      scheduleAutoPopup(projects as Project[], active);
+      setHasPrograms((programs as any[]).length > 0);
+      scheduleAutoPopup(projects as Project[], active, programs as any[]);
     };
     load();
   }, [showPopup]);
 
+  const isDisabled = allTracking || !hasProjects || !hasPrograms;
+
   const handleOpenPopup = () => {
-    if (allTracking || !hasProjects) return;
+    if (isDisabled) return;
     setShowPopup(true);
   };
 
@@ -120,16 +126,16 @@ const PopupDemo: React.FC = () => {
         </p>
         <button
           onClick={handleOpenPopup}
-          disabled={allTracking || !hasProjects}
+          disabled={isDisabled}
           style={{
             padding: '12px 24px',
-            background: (allTracking || !hasProjects) ? UI_COLORS.bg.hover : UI_COLORS.brand.accent,
+            background: isDisabled ? UI_COLORS.bg.hover : UI_COLORS.brand.accent,
             border: 'none',
             borderRadius: '8px',
-            color: (allTracking || !hasProjects) ? UI_COLORS.text.muted : '#FFFFFF',
+            color: isDisabled ? UI_COLORS.text.muted : '#FFFFFF',
             fontSize: '14px',
             fontWeight: '600',
-            cursor: (allTracking || !hasProjects) ? 'not-allowed' : 'pointer',
+            cursor: isDisabled ? 'not-allowed' : 'pointer',
           }}
         >
           {t('popupDemo.openPopup')}
