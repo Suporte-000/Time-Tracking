@@ -88,6 +88,7 @@ console.error = (...a) => { _origError(...a); writeLog('ERROR', a); };
 const PS_PROCESS_NAMES_ENCODED = Buffer.from(`Get-Process | Select-Object -ExpandProperty Name`, 'utf16le').toString('base64');
 
 // Shared mutex: only one psGetProcessNames call at a time
+// Returns ALL running process names (including background) — used for checkTrackedProcessStillRunning
 let _psNamesPromise: Promise<Set<string>> | null = null;
 function psGetRunningNames(): Promise<Set<string>> {
   if (_psNamesPromise) return _psNamesPromise;
@@ -101,6 +102,26 @@ function psGetRunningNames(): Promise<Set<string>> {
     new Set<string>(stdout.split(/\r?\n/).map((l: string) => l.trim().toLowerCase()).filter(Boolean))
   ).catch(() => new Set<string>()).finally(() => { _psNamesPromise = null; });
   _psNamesPromise = p;
+  return p;
+}
+
+// Returns only process names that have a visible window (MainWindowHandle != 0)
+// Used for scanRegisteredProcesses — we only show popup when the user is actively using the app
+const PS_WINDOWED_NAMES_SCRIPT = `Get-Process | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -ExpandProperty Name`;
+const PS_WINDOWED_NAMES_ENCODED = Buffer.from(PS_WINDOWED_NAMES_SCRIPT, 'utf16le').toString('base64');
+let _psWindowedPromise: Promise<Set<string>> | null = null;
+function psGetWindowedNames(): Promise<Set<string>> {
+  if (_psWindowedPromise) return _psWindowedPromise;
+  const { exec } = require('child_process');
+  const { promisify } = require('util');
+  const execA = promisify(exec);
+  const p: Promise<Set<string>> = execA(
+    `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_WINDOWED_NAMES_ENCODED}`,
+    { timeout: 10000, windowsHide: true }
+  ).then(({ stdout }: { stdout: string }) =>
+    new Set<string>(stdout.split(/\r?\n/).map((l: string) => l.trim().toLowerCase()).filter(Boolean))
+  ).catch(() => new Set<string>()).finally(() => { _psWindowedPromise = null; });
+  _psWindowedPromise = p;
   return p;
 }
 
@@ -578,7 +599,8 @@ class TimeTrackApp {
       const registeredPrograms = this.db?.getProjectPrograms() || [];
       if (registeredPrograms.length === 0) return;
 
-      const running = await psGetRunningNames();
+      // Only consider processes with a visible window — avoids triggering popup for background processes
+      const running = await psGetWindowedNames();
 
       const activeEntries = this.db?.getTimeEntries() || [];
       const activeProcesses = new Set(activeEntries.filter(e => !e.endTime).map(e => e.processName.toLowerCase()));
