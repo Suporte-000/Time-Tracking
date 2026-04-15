@@ -105,7 +105,17 @@ function psGetRunningNames(): Promise<Set<string>> {
 }
 
 // ── Running apps via PowerShell Get-Process (no ffi-napi needed) ─────────────
-const PS_RUNNING_APPS_SCRIPT = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | ForEach-Object { "$($_.ProcessName)|$($_.MainWindowTitle)" }`;
+// Lists all user-space processes; uses MainWindowTitle when available, otherwise ProcessName.
+// Excludes known Windows system processes to keep the list clean.
+const PS_RUNNING_APPS_SCRIPT = [
+  `$ex = @('Idle','System','Registry','smss','csrss','wininit','winlogon','services','lsass',`,
+  `'fontdrvhost','dwm','Memory Compression','svchost','spoolsv','SearchIndexer',`,
+  `'MsMpEng','NisSrv','conhost','dllhost','taskhostw','sihost','ctfmon','RuntimeBroker')`,
+  `Get-Process | Where-Object { $ex -notcontains $_.ProcessName } | ForEach-Object {`,
+  `  $title = if ($_.MainWindowTitle) { $_.MainWindowTitle } else { $_.ProcessName }`,
+  `  "$($_.ProcessName)|$title"`,
+  `} | Sort-Object -Unique`,
+].join('; ');
 const PS_RUNNING_APPS_ENCODED = Buffer.from(PS_RUNNING_APPS_SCRIPT, 'utf16le').toString('base64');
 
 async function getRunningAppsNative(): Promise<{ processName: string; windowTitle: string; icon: string }[]> {
@@ -115,7 +125,7 @@ async function getRunningAppsNative(): Promise<{ processName: string; windowTitl
   try {
     const { stdout } = await execAsync2(
       `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_RUNNING_APPS_ENCODED}`,
-      { timeout: 8000, windowsHide: true }
+      { timeout: 10000, windowsHide: true }
     );
     const seen = new Set<string>();
     const apps: { processName: string; windowTitle: string; icon: string }[] = [];
@@ -126,12 +136,12 @@ async function getRunningAppsNative(): Promise<{ processName: string; windowTitl
       if (idx < 0) continue;
       const name = t.substring(0, idx).trim();
       const title = t.substring(idx + 1).trim();
-      if (!name || !title) continue;
+      if (!name) continue;
       const key = name.toLowerCase();
-      if (key === 'timetrack') continue;
+      if (key === 'timetrack' || key === 'powershell' || key === 'cmd') continue;
       if (!seen.has(key)) {
         seen.add(key);
-        apps.push({ processName: name, windowTitle: title, icon: '🖥️' });
+        apps.push({ processName: name, windowTitle: title || name, icon: '🖥️' });
       }
     }
     return apps;
