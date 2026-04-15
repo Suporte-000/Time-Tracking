@@ -127,16 +127,7 @@ function psGetWindowedNames(): Promise<Set<string>> {
 
 // ── Running apps via PowerShell Get-Process (no ffi-napi needed) ─────────────
 // Lists all user-space processes; uses MainWindowTitle when available, otherwise ProcessName.
-// Excludes known Windows system processes to keep the list clean.
-const PS_RUNNING_APPS_SCRIPT = [
-  `$ex = @('Idle','System','Registry','smss','csrss','wininit','winlogon','services','lsass',`,
-  `'fontdrvhost','dwm','Memory Compression','svchost','spoolsv','SearchIndexer',`,
-  `'MsMpEng','NisSrv','conhost','dllhost','taskhostw','sihost','ctfmon','RuntimeBroker')`,
-  `Get-Process | Where-Object { $ex -notcontains $_.ProcessName } | ForEach-Object {`,
-  `  $title = if ($_.MainWindowTitle) { $_.MainWindowTitle } else { $_.ProcessName }`,
-  `  "$($_.ProcessName)|$title"`,
-  `} | Sort-Object -Unique`,
-].join('; ');
+const PS_RUNNING_APPS_SCRIPT = `$ex=@('Idle','System','Registry','smss','csrss','wininit','winlogon','services','lsass','fontdrvhost','dwm','Memory Compression','svchost','spoolsv','SearchIndexer','MsMpEng','NisSrv','conhost','dllhost','taskhostw','sihost','ctfmon','RuntimeBroker'); Get-Process | Where-Object { $ex -notcontains $_.ProcessName } | ForEach-Object { $t = if ($_.MainWindowTitle) { $_.MainWindowTitle } else { $_.ProcessName }; "$($_.ProcessName)|$t" } | Sort-Object -Unique`;
 const PS_RUNNING_APPS_ENCODED = Buffer.from(PS_RUNNING_APPS_SCRIPT, 'utf16le').toString('base64');
 
 async function getRunningAppsNative(): Promise<{ processName: string; windowTitle: string; icon: string }[]> {
