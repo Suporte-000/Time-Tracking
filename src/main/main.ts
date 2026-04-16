@@ -84,31 +84,37 @@ console.log = (...a) => { _origLog(...a); writeLog('INFO', a); };
 console.warn = (...a) => { _origWarn(...a); writeLog('WARN', a); };
 console.error = (...a) => { _origError(...a); writeLog('ERROR', a); };
 
-// PowerShell helper — returns process names, one per line (used for scan/check)
-const PS_PROCESS_NAMES_ENCODED = Buffer.from(`Get-Process | Select-Object -ExpandProperty Name`, 'utf16le').toString('base64');
+// ── Process name helpers — use tasklist (built-in, no PowerShell policy issues) ──
 
-// Shared mutex: only one psGetProcessNames call at a time
-// Returns ALL running process names (including background) — used for checkTrackedProcessStillRunning
+// Returns ALL running process names — used for checkTrackedProcessStillRunning
 let _psNamesPromise: Promise<Set<string>> | null = null;
 function psGetRunningNames(): Promise<Set<string>> {
   if (_psNamesPromise) return _psNamesPromise;
   const { exec } = require('child_process');
   const { promisify } = require('util');
   const execA = promisify(exec);
+  // tasklist /fo csv /nh → "chrome.exe","1234","..." one per line
   const p: Promise<Set<string>> = execA(
-    `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_PROCESS_NAMES_ENCODED}`,
-    { timeout: 10000, windowsHide: true }
-  ).then(({ stdout }: { stdout: string }) =>
-    new Set<string>(stdout.split(/\r?\n/).map((l: string) => l.trim().toLowerCase()).filter(Boolean))
-  ).catch(() => new Set<string>()).finally(() => { _psNamesPromise = null; });
+    `tasklist /fo csv /nh`,
+    { timeout: 15000, windowsHide: true }
+  ).then(({ stdout }: { stdout: string }) => {
+    const names = new Set<string>();
+    for (const line of stdout.split(/\r?\n/)) {
+      const m = line.match(/^"([^"]+\.exe)"/i);
+      if (m) names.add(m[1].replace(/\.exe$/i, '').toLowerCase());
+    }
+    return names;
+  }).catch(() => new Set<string>()).finally(() => { _psNamesPromise = null; });
   _psNamesPromise = p;
   return p;
 }
 
-// Returns only process names that have a visible window (MainWindowHandle != 0)
-// Used for scanRegisteredProcesses — we only show popup when the user is actively using the app
-const PS_WINDOWED_NAMES_SCRIPT = `Get-Process | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -ExpandProperty Name`;
-const PS_WINDOWED_NAMES_ENCODED = Buffer.from(PS_WINDOWED_NAMES_SCRIPT, 'utf16le').toString('base64');
+// Returns only process names that have a visible window — used for scanRegisteredProcesses
+// Uses PowerShell with fallback to tasklist if PowerShell fails
+const PS_WINDOWED_ENCODED = Buffer.from(
+  `Get-Process | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -ExpandProperty Name`,
+  'utf16le'
+).toString('base64');
 let _psWindowedPromise: Promise<Set<string>> | null = null;
 function psGetWindowedNames(): Promise<Set<string>> {
   if (_psWindowedPromise) return _psWindowedPromise;
@@ -116,32 +122,44 @@ function psGetWindowedNames(): Promise<Set<string>> {
   const { promisify } = require('util');
   const execA = promisify(exec);
   const p: Promise<Set<string>> = execA(
-    `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_WINDOWED_NAMES_ENCODED}`,
+    `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_WINDOWED_ENCODED}`,
     { timeout: 10000, windowsHide: true }
-  ).then(({ stdout }: { stdout: string }) =>
-    new Set<string>(stdout.split(/\r?\n/).map((l: string) => l.trim().toLowerCase()).filter(Boolean))
-  ).catch(() => new Set<string>()).finally(() => { _psWindowedPromise = null; });
+  ).then(({ stdout }: { stdout: string }) => {
+    const names = new Set<string>(
+      stdout.split(/\r?\n/).map((l: string) => l.trim().toLowerCase()).filter(Boolean)
+    );
+    // If PowerShell returned nothing, fall back to all running names
+    if (names.size === 0) return psGetRunningNames();
+    return names;
+  }).catch(() => psGetRunningNames()) // fallback: use tasklist result
+    .finally(() => { _psWindowedPromise = null; });
   _psWindowedPromise = p;
   return p;
 }
 
-// ── Running apps via PowerShell Get-Process (no ffi-napi needed) ─────────────
-// Lists all user-space processes; uses MainWindowTitle when available, otherwise ProcessName.
+// ── Running apps list — PowerShell with tasklist fallback ────────────────────
 const PS_RUNNING_APPS_SCRIPT = `$ex=@('Idle','System','Registry','smss','csrss','wininit','winlogon','services','lsass','fontdrvhost','dwm','Memory Compression','svchost','spoolsv','SearchIndexer','MsMpEng','NisSrv','conhost','dllhost','taskhostw','sihost','ctfmon','RuntimeBroker'); Get-Process | Where-Object { $ex -notcontains $_.ProcessName } | ForEach-Object { $t = if ($_.MainWindowTitle) { $_.MainWindowTitle } else { $_.ProcessName }; "$($_.ProcessName)|$t" } | Sort-Object -Unique`;
 const PS_RUNNING_APPS_ENCODED = Buffer.from(PS_RUNNING_APPS_SCRIPT, 'utf16le').toString('base64');
+
+const TASKLIST_SYS = new Set(['system idle process','system','registry','smss','csrss','wininit',
+  'winlogon','services','lsass','fontdrvhost','dwm','memory compression','svchost','spoolsv',
+  'searchindexer','msmpeng','nissrv','conhost','dllhost','taskhostw','sihost','ctfmon',
+  'runtimebroker','timetrack','powershell','cmd','tasklist']);
 
 async function getRunningAppsNative(): Promise<{ processName: string; windowTitle: string; icon: string }[]> {
   const { exec } = require('child_process');
   const { promisify } = require('util');
-  const execAsync2 = promisify(exec);
+  const execA = promisify(exec);
+
+  // Try PowerShell first
   try {
-    const { stdout } = await execAsync2(
+    const { stdout } = await execA(
       `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_RUNNING_APPS_ENCODED}`,
       { timeout: 10000, windowsHide: true }
     );
     const seen = new Set<string>();
     const apps: { processName: string; windowTitle: string; icon: string }[] = [];
-    for (const line of stdout.trim().split(/\r?\n/)) {
+    for (const line of (stdout as string).trim().split(/\r?\n/)) {
       const t = line.trim();
       if (!t) continue;
       const idx = t.indexOf('|');
@@ -150,12 +168,29 @@ async function getRunningAppsNative(): Promise<{ processName: string; windowTitl
       const title = t.substring(idx + 1).trim();
       if (!name) continue;
       const key = name.toLowerCase();
-      if (key === 'timetrack' || key === 'powershell' || key === 'cmd') continue;
-      if (!seen.has(key)) {
-        seen.add(key);
-        apps.push({ processName: name, windowTitle: title || name, icon: '🖥️' });
-      }
+      if (TASKLIST_SYS.has(key)) continue;
+      if (!seen.has(key)) { seen.add(key); apps.push({ processName: name, windowTitle: title || name, icon: '🖥️' }); }
     }
+    if (apps.length > 0) {
+      console.log(`[RunningApps] Found ${apps.length} apps (PowerShell)`);
+      return apps;
+    }
+  } catch { /* fall through to tasklist */ }
+
+  // Fallback: tasklist /fo csv /nh — works even with restricted PowerShell policy
+  try {
+    const { stdout } = await execA(`tasklist /fo csv /nh`, { timeout: 15000, windowsHide: true });
+    const seen = new Set<string>();
+    const apps: { processName: string; windowTitle: string; icon: string }[] = [];
+    for (const line of (stdout as string).split(/\r?\n/)) {
+      const m = line.match(/^"([^"]+\.exe)"/i);
+      if (!m) continue;
+      const name = m[1].replace(/\.exe$/i, '');
+      const key = name.toLowerCase();
+      if (TASKLIST_SYS.has(key)) continue;
+      if (!seen.has(key)) { seen.add(key); apps.push({ processName: name, windowTitle: name, icon: '🖥️' }); }
+    }
+    console.log(`[RunningApps] Found ${apps.length} apps (tasklist fallback)`);
     return apps;
   } catch {
     return [];
