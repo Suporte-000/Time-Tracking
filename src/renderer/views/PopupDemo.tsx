@@ -22,13 +22,14 @@ const PopupDemo: React.FC = () => {
     autoTimerRef.current = setTimeout(async () => {
       const allDone = projects.length > 0 && projects.every(p => active.has(p.id));
       if (allDone) return;
-      const apps = await window.electron.getMonitoredApps();
-      const linked = apps.filter((a: { processName: string }) =>
-        projects.some(p => p.processName && p.processName.toLowerCase() === a.processName.toLowerCase())
-      );
-      const pool = linked.length > 0 ? linked : apps;
-      const app = pool[Math.floor(Math.random() * pool.length)] ?? { name: 'Visual Studio Code', processName: 'Code' };
-      setDetectedApp({ appName: app.name, processName: app.processName });
+      // Only pick from registered programs that are currently running
+      const runningApps = await window.electron.getRunningApps?.() ?? [];
+      const runningNames = new Set((runningApps as { processName: string }[]).map(a => a.processName.toLowerCase()));
+      const runningPrograms = programs.filter((p: any) => runningNames.has(p.processName.toLowerCase()));
+      const pool = runningPrograms.length > 0 ? runningPrograms : programs;
+      const prog = pool[Math.floor(Math.random() * pool.length)];
+      if (!prog) return;
+      setDetectedApp({ appName: prog.displayName ?? prog.processName, processName: prog.processName });
       setShowPopup(true);
     }, POPUP_DELAY_MS);
   };

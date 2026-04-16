@@ -146,38 +146,23 @@ const TASKLIST_SYS = new Set(['system idle process','system','registry','smss','
   'searchindexer','msmpeng','nissrv','conhost','dllhost','taskhostw','sihost','ctfmon',
   'runtimebroker','timetrack','powershell','cmd','tasklist']);
 
+let _getRunningAppsPromise: Promise<{ processName: string; windowTitle: string; icon: string }[]> | null = null;
+
 async function getRunningAppsNative(): Promise<{ processName: string; windowTitle: string; icon: string }[]> {
+  // Mutex: prevent concurrent calls from spawning multiple processes
+  if (_getRunningAppsPromise) return _getRunningAppsPromise;
+
+  const p = _doGetRunningApps().finally(() => { _getRunningAppsPromise = null; });
+  _getRunningAppsPromise = p;
+  return p;
+}
+
+async function _doGetRunningApps(): Promise<{ processName: string; windowTitle: string; icon: string }[]> {
   const { exec } = require('child_process');
   const { promisify } = require('util');
   const execA = promisify(exec);
 
-  // Try PowerShell first
-  try {
-    const { stdout } = await execA(
-      `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_RUNNING_APPS_ENCODED}`,
-      { timeout: 10000, windowsHide: true }
-    );
-    const seen = new Set<string>();
-    const apps: { processName: string; windowTitle: string; icon: string }[] = [];
-    for (const line of (stdout as string).trim().split(/\r?\n/)) {
-      const t = line.trim();
-      if (!t) continue;
-      const idx = t.indexOf('|');
-      if (idx < 0) continue;
-      const name = t.substring(0, idx).trim();
-      const title = t.substring(idx + 1).trim();
-      if (!name) continue;
-      const key = name.toLowerCase();
-      if (TASKLIST_SYS.has(key)) continue;
-      if (!seen.has(key)) { seen.add(key); apps.push({ processName: name, windowTitle: title || name, icon: '🖥️' }); }
-    }
-    if (apps.length > 0) {
-      console.log(`[RunningApps] Found ${apps.length} apps (PowerShell)`);
-      return apps;
-    }
-  } catch { /* fall through to tasklist */ }
-
-  // Fallback: tasklist /fo csv /nh — works even with restricted PowerShell policy
+  // Use tasklist directly — reliable on all machines regardless of PowerShell ExecutionPolicy
   try {
     const { stdout } = await execA(`tasklist /fo csv /nh`, { timeout: 15000, windowsHide: true });
     const seen = new Set<string>();
@@ -190,7 +175,7 @@ async function getRunningAppsNative(): Promise<{ processName: string; windowTitl
       if (TASKLIST_SYS.has(key)) continue;
       if (!seen.has(key)) { seen.add(key); apps.push({ processName: name, windowTitle: name, icon: '🖥️' }); }
     }
-    console.log(`[RunningApps] Found ${apps.length} apps (tasklist fallback)`);
+    console.log(`[RunningApps] Found ${apps.length} apps`);
     return apps;
   } catch {
     return [];
