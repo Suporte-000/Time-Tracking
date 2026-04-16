@@ -740,6 +740,23 @@ class TimeTrackApp {
       return;
     }
 
+    // Check if a DIFFERENT registered program is currently being tracked
+    const currentlyTrackedEntry = activeEntries?.find(e => !e.endTime && e.processName !== processName);
+    if (currentlyTrackedEntry) {
+      if (this._popupCooldown.has(processName)) return;
+      this._popupCooldown.add(processName);
+      console.log(`[AutoTrack] Switch detected: stopping "${currentlyTrackedEntry.processName}", showing popup for "${processName}"`);
+      // Stop the previous tracking entry
+      this.db?.stopTracking(currentlyTrackedEntry.id, 'auto');
+      this.sync?.syncEntry(currentlyTrackedEntry.id).catch(() => {});
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('tracking-auto-stopped', currentlyTrackedEntry.id);
+      }
+      // Show popup for the new program (with switchedFrom context)
+      this.createPopupWindow(linked.displayName, processName, currentlyTrackedEntry.processName);
+      return;
+    }
+
     if (!this.popupTimers.has(processName)) {
       // Standalone (no project linked) → show popup for user to pick project
       if (!linked.projectId) {
@@ -810,7 +827,7 @@ class TimeTrackApp {
     }
   }
 
-  private createPopupWindow(appName: string, processName: string) {
+  private createPopupWindow(appName: string, processName: string, switchedFrom?: string) {
     if (this.popupWindow && !this.popupWindow.isDestroyed()) {
       this.popupWindow.focus();
       return;
@@ -863,6 +880,7 @@ class TimeTrackApp {
     const queryParams = new URLSearchParams({
       appName,
       processName,
+      ...(switchedFrom ? { switchedFrom } : {}),
     });
 
     if (process.env.NODE_ENV === 'development') {

@@ -5,6 +5,7 @@ import { useI18n } from '../i18nContext';
 interface ProjectPopupProps {
   appName: string;
   processName: string;
+  switchedFrom?: string;
   activeProjectIds?: Set<string>;
   onSelect: (projectId: string, appName: string, processName: string) => void;
   onDismiss: () => void;
@@ -24,6 +25,7 @@ const getAppIcon = (name: string) => APP_ICONS[name.toLowerCase()] ?? '🖥️';
 const ProjectPopup: React.FC<ProjectPopupProps> = ({
   appName,
   processName,
+  switchedFrom,
   activeProjectIds = new Set(),
   onSelect,
   onDismiss,
@@ -70,6 +72,14 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
     <div style={cardStyle}>
       {/* Header */}
       <div style={headerStyle}>
+        {switchedFrom && (
+          <div style={{ fontSize: '11px', color: '#718096', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: '#4A5568' }}>{getAppIcon(switchedFrom)}</span>
+            <span style={{ color: '#4A5568', textDecoration: 'line-through' }}>{switchedFrom}.exe</span>
+            <span style={{ color: '#4A5568' }}>→</span>
+            <span style={{ color: '#1FB8A0', fontWeight: 600 }}>{processName}.exe</span>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
           <span style={{ fontSize: '22px' }}>{getAppIcon(processName)}</span>
           <div>

@@ -7,6 +7,7 @@ const PopupApp: React.FC = () => {
   const [appData, setAppData] = useState<{
     appName: string;
     processName: string;
+    switchedFrom?: string;
   } | null>(null);
   const [userId, setUserId] = useState<string>('');
   const cardRef = useRef<HTMLDivElement>(null);
@@ -23,7 +24,8 @@ const PopupApp: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const appName = params.get('appName') || t('popupApp.unknownApp');
     const processName = params.get('processName') || '';
-    setAppData({ appName, processName });
+    const switchedFrom = params.get('switchedFrom') || undefined;
+    setAppData({ appName, processName, switchedFrom });
 
     window.electron.getLocalUser().then(user => {
       if (user?.id) setUserId(user.id);
@@ -64,6 +66,7 @@ const PopupApp: React.FC = () => {
       <ProjectPopup
         appName={appData.appName}
         processName={appData.processName}
+        switchedFrom={appData.switchedFrom}
         onSelect={handleSelect}
         onDismiss={handleDismiss}
       />

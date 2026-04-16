@@ -60,6 +60,10 @@
       {
         "from": ".env",
         "to": ".env"
+      },
+      {
+        "from": "src/helpers/fg-window.exe",
+        "to": "fg-window.exe"
       }
     ],
     "win": {
