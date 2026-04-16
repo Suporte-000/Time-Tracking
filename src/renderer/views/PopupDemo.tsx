@@ -53,9 +53,16 @@ const PopupDemo: React.FC = () => {
       setAllTracking(allDone);
       setHasProjects((projects as Project[]).length > 0);
 
-      // Check if any registered program is currently running
+      // Check if any registered program is currently running AND not already being tracked
       const runningNames = new Set((runningApps as { processName: string }[]).map(a => a.processName.toLowerCase()));
-      const runningPrograms = (programs as any[]).filter((p: any) => runningNames.has(p.processName.toLowerCase()));
+      const trackedProcesses = new Set(
+        (entries as TimeEntry[]).filter((e: TimeEntry) => !e.endTime && e.processName)
+          .map((e: TimeEntry) => (e.processName as string).toLowerCase())
+      );
+      const runningPrograms = (programs as any[]).filter((p: any) =>
+        runningNames.has(p.processName.toLowerCase()) &&
+        !trackedProcesses.has(p.processName.toLowerCase())
+      );
       if (runningPrograms.length > 0) {
         const prog = runningPrograms[0];
         setDetectedApp({ appName: prog.displayName ?? prog.processName, processName: prog.processName });
