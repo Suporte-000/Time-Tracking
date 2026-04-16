@@ -110,6 +110,33 @@ const Configuration: React.FC = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
+          {/* System Parameters */}
+          {config && (
+            <div style={{ background: '#161C26', borderRadius: '14px', border: '1px solid #1E2A3A', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid #1E2A3A' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '1px', color: '#718096' }}>{t('config.systemParams')}</span>
+              </div>
+              <div>
+                {[
+                  { label: t('config.inactivity'),  key: 'inactivityTimeout' as const, unit: t('config.minutes'), min: 1,  max: 60  },
+                  { label: t('config.popupDelay'),  key: 'popupDelay'        as const, unit: t('config.minutes'), min: 1,  max: 60  },
+                  { label: t('config.autoClose'),   key: 'popupAutoClose'    as const, unit: t('config.seconds'), min: 10, max: 300 },
+                  { label: t('config.backup'),      key: 'backupInterval'    as const, unit: t('config.hour'),    min: 1,  max: 24  },
+                ].map(row => (
+                  <div key={row.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #111722' }}>
+                    <span style={{ fontSize: '14px', color: '#A0AEC0' }}>{row.label}</span>
+                    <EditableBadge
+                      value={row.key === 'backupInterval' ? Math.round((config[row.key] as number) / 60) : (config[row.key] as number)}
+                      unit={row.unit}
+                      min={row.min}
+                      max={row.max}
+                      onChange={v => handleConfigNumber(row.key, row.key === 'backupInterval' ? v * 60 : v)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* System Toggles */}
           {config && (

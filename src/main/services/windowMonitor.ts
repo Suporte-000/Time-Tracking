@@ -10,16 +10,28 @@ export interface ActiveWindow {
   timestamp: string;
 }
 
-// PowerShell script: get the process with a foreground/active window.
-// Uses MainWindowHandle != 0 + CPU sort as a proxy for the active window.
-// No Add-Type / C# compilation — runs fast.
-const PS_ACTIVE_WINDOW_SCRIPT = `$p = Get-Process | Where-Object {$_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -ne ''} | Sort-Object CPU -Descending | Select-Object -First 1; if ($p) { "$($p.ProcessName)|$($p.MainWindowTitle)" }`;
-const PS_ACTIVE_WINDOW_ENCODED = Buffer.from(PS_ACTIVE_WINDOW_SCRIPT, 'utf16le').toString('base64');
+// Uses UIAutomationClient (.NET built-in DLL, no C# compilation) to get the
+// ACTUAL focused window via FocusedElement — no CPU heuristic, no window stealing.
+// -ExecutionPolicy Bypass overrides Restricted policy for this single call.
+const PS_FOCUSED_SCRIPT = `
+[void][System.Reflection.Assembly]::LoadWithPartialName('UIAutomationClient')
+try {
+  $el = [System.Windows.Automation.AutomationElement]::FocusedElement
+  if ($el) {
+    $pid = $el.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::ProcessIdProperty)
+    $p = Get-Process -Id $pid -ErrorAction SilentlyContinue
+    if ($p) { "$($p.ProcessName)|$($p.MainWindowTitle)" }
+  }
+} catch {}
+`.trim();
+
+const PS_FOCUSED_ENCODED = Buffer.from(PS_FOCUSED_SCRIPT, 'utf16le').toString('base64');
 
 export class WindowMonitor extends EventEmitter {
   private intervalId: NodeJS.Timeout | null = null;
   private pollInterval: number = 1000;
   private lastActiveWindow: ActiveWindow | null = null;
+  private _pending = false;
 
   constructor(pollInterval: number = 1000) {
     super();
@@ -28,7 +40,7 @@ export class WindowMonitor extends EventEmitter {
 
   start() {
     if (this.intervalId) return;
-    console.log('WindowMonitor started (GetForegroundWindow)');
+    console.log('WindowMonitor started (UIAutomation FocusedElement)');
     this.intervalId = setInterval(() => this.checkActiveWindow(), this.pollInterval);
     this.checkActiveWindow();
   }
@@ -41,6 +53,8 @@ export class WindowMonitor extends EventEmitter {
   }
 
   private async checkActiveWindow() {
+    if (this._pending) return; // skip if previous poll still running
+    this._pending = true;
     try {
       const activeWindow = await this.getActiveWindow();
       if (!activeWindow) return;
@@ -51,6 +65,8 @@ export class WindowMonitor extends EventEmitter {
       }
     } catch {
       // Silently ignore transient errors
+    } finally {
+      this._pending = false;
     }
   }
 
@@ -65,7 +81,7 @@ export class WindowMonitor extends EventEmitter {
 
     try {
       const { stdout } = await execAsync(
-        `powershell -NoProfile -NonInteractive -EncodedCommand ${PS_ACTIVE_WINDOW_ENCODED}`,
+        `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${PS_FOCUSED_ENCODED}`,
         { timeout: 4000, windowsHide: true }
       );
       const line = stdout.trim();

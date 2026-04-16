@@ -44,8 +44,12 @@ const ProjectPopup: React.FC<ProjectPopupProps> = ({
 
   const loadData = async () => {
     try {
-      const allProjects = await window.electron.getProjects();
+      const [allProjects, config] = await Promise.all([
+        window.electron.getProjects(),
+        window.electron.getConfig(),
+      ]);
       setProjects((allProjects as Project[]).filter(p => p.isActive));
+      if (config?.popupAutoClose) setCountdown(config.popupAutoClose);
     } catch (e: any) {
       console.log(`[Popup][ERROR] loadData error: ${e?.message || e}`);
     }
