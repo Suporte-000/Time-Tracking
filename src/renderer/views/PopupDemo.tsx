@@ -11,7 +11,7 @@ const PopupDemo: React.FC = () => {
   const [activeProjectIds, setActiveProjectIds] = useState<Set<string>>(new Set());
   const [allTracking, setAllTracking] = useState(false);
   const [hasProjects, setHasProjects] = useState(false);
-  const [hasPrograms, setHasPrograms] = useState(false);
+  const [hasRunningProgram, setHasRunningProgram] = useState(false);
   const [detectedApp, setDetectedApp] = useState<{ appName: string; processName: string } | null>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const POPUP_DELAY_MS = 2 * 60 * 1000;
@@ -41,23 +41,36 @@ const PopupDemo: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       const today = new Date().toISOString().split('T')[0];
-      const [projects, entries, programs] = await Promise.all([
+      const [projects, entries, programs, runningApps] = await Promise.all([
         window.electron.getProjects(),
         window.electron.getTimeEntries(today),
         window.electron.getProjectPrograms(),
+        window.electron.getRunningApps?.() ?? Promise.resolve([]),
       ]);
       const active = new Set<string>((entries as TimeEntry[]).filter((e: TimeEntry) => !e.endTime).map((e: TimeEntry) => e.projectId).filter((id): id is string => id !== null));
       setActiveProjectIds(active);
       const allDone = (projects as Project[]).length > 0 && (projects as Project[]).every((p: Project) => active.has(p.id));
       setAllTracking(allDone);
       setHasProjects((projects as Project[]).length > 0);
-      setHasPrograms((programs as any[]).length > 0);
+
+      // Check if any registered program is currently running
+      const runningNames = new Set((runningApps as { processName: string }[]).map(a => a.processName.toLowerCase()));
+      const runningPrograms = (programs as any[]).filter((p: any) => runningNames.has(p.processName.toLowerCase()));
+      if (runningPrograms.length > 0) {
+        const prog = runningPrograms[0];
+        setDetectedApp({ appName: prog.displayName ?? prog.processName, processName: prog.processName });
+        setHasRunningProgram(true);
+      } else {
+        setDetectedApp(null);
+        setHasRunningProgram(false);
+      }
+
       scheduleAutoPopup(projects as Project[], active, programs as any[]);
     };
     load();
   }, [showPopup]);
 
-  const isDisabled = allTracking || !hasProjects || !hasPrograms;
+  const isDisabled = allTracking || !hasProjects || !hasRunningProgram;
 
   const handleOpenPopup = () => {
     if (isDisabled) return;
