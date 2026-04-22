@@ -656,6 +656,7 @@ class TimeTrackApp {
           }
           this.showTrackingNotification();
         }
+        break; // one at a time
       }
     } catch (err) {
       console.warn('[Scan] scanRegisteredProcesses error:', err);
