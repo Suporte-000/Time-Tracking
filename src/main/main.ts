@@ -705,9 +705,14 @@ class TimeTrackApp {
   private handleWindowChange(activeWindow: { processName: string; windowTitle: string }) {
     const processName = activeWindow.processName;
 
-    // If process changed, clear previous timer
+    const registeredPrograms = this.db?.getProjectPrograms() || [];
+    const isRegistered = registeredPrograms.some(p => p.processName.toLowerCase() === processName.toLowerCase());
+
+    // If process changed, only clear the previous registered program's timer when
+    // switching to a DIFFERENT registered program — brief detours to unregistered
+    // windows (TimeTrack, explorer, etc.) must not reset a pending timer.
     if (this.currentActiveProcess !== processName) {
-      if (this.currentActiveProcess) {
+      if (this.currentActiveProcess && isRegistered) {
         const timer = this.popupTimers.get(this.currentActiveProcess);
         if (timer) {
           clearTimeout(timer);
@@ -718,8 +723,6 @@ class TimeTrackApp {
     }
 
     // If switching to an unregistered program, start a timer to stop active tracking
-    const registeredPrograms = this.db?.getProjectPrograms() || [];
-    const isRegistered = registeredPrograms.some(p => p.processName.toLowerCase() === processName.toLowerCase());
     if (!isRegistered) {
       if (!this._unregisteredTimer) {
         const config = this.db?.getConfig();
