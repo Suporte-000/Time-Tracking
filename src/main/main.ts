@@ -616,6 +616,9 @@ class TimeTrackApp {
       const activeEntries = this.db?.getTimeEntries() || [];
       const activeProcesses = new Set(activeEntries.filter(e => !e.endTime).map(e => e.processName.toLowerCase()));
 
+      // If anything is already being tracked, don't auto-start another program
+      if (activeProcesses.size > 0) return;
+
       const user = this.sync?.getLocalUser();
       if (!user) return;
 
@@ -744,16 +747,32 @@ class TimeTrackApp {
     const currentlyTrackedEntry = activeEntries?.find(e => !e.endTime && e.processName !== processName);
     if (currentlyTrackedEntry) {
       if (this._popupCooldown.has(processName)) return;
+      if (this.popupTimers.has(processName)) return; // switch timer already pending
       this._popupCooldown.add(processName);
-      console.log(`[AutoTrack] Switch detected: stopping "${currentlyTrackedEntry.processName}", showing popup for "${processName}"`);
-      // Stop the previous tracking entry
-      this.db?.stopTracking(currentlyTrackedEntry.id, 'auto');
-      this.sync?.syncEntry(currentlyTrackedEntry.id).catch(() => {});
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.webContents.send('tracking-auto-stopped', currentlyTrackedEntry.id);
-      }
-      // Show popup for the new program (with switchedFrom context)
-      this.createPopupWindow(linked.displayName, processName, currentlyTrackedEntry.processName);
+      console.log(`[AutoTrack] Switch detected: "${currentlyTrackedEntry.processName}" → "${processName}", waiting ${popupDelay / 1000}s`);
+
+      const switchTimer = setTimeout(() => {
+        this.popupTimers.delete(processName);
+        // Only proceed if user is still focused on the new program
+        if (this.currentActiveProcess !== processName) {
+          console.log(`[AutoTrack] Switch cancelled — user returned to "${this.currentActiveProcess}"`);
+          this._popupCooldown.delete(processName);
+          return;
+        }
+        // Re-check: old entry still open
+        const entries = this.db?.getTimeEntries();
+        const oldEntry = entries?.find(e => !e.endTime && e.processName === currentlyTrackedEntry.processName);
+        if (oldEntry) {
+          this.db?.stopTracking(oldEntry.id, 'auto');
+          this.sync?.syncEntry(oldEntry.id).catch(() => {});
+          if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+            this.mainWindow.webContents.send('tracking-auto-stopped', oldEntry.id);
+          }
+        }
+        this.createPopupWindow(linked.displayName, processName, currentlyTrackedEntry.processName);
+      }, popupDelay);
+
+      this.popupTimers.set(processName, switchTimer);
       return;
     }
 
