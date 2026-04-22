@@ -12,6 +12,7 @@ const PopupDemo: React.FC = () => {
   const [allTracking, setAllTracking] = useState(false);
   const [hasProjects, setHasProjects] = useState(false);
   const [hasRunningProgram, setHasRunningProgram] = useState(false);
+  const [anyTracking, setAnyTracking] = useState(false);
   const [detectedApp, setDetectedApp] = useState<{ appName: string; processName: string } | null>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const POPUP_DELAY_MS = 2 * 60 * 1000;
@@ -52,6 +53,7 @@ const PopupDemo: React.FC = () => {
       const allDone = (projects as Project[]).length > 0 && (projects as Project[]).every((p: Project) => active.has(p.id));
       setAllTracking(allDone);
       setHasProjects((projects as Project[]).length > 0);
+      setAnyTracking((entries as TimeEntry[]).some((e: TimeEntry) => !e.endTime));
 
       // Check if any registered program is currently running AND not already being tracked
       const runningNames = new Set((runningApps as { processName: string }[]).map(a => a.processName.toLowerCase()));
@@ -77,7 +79,7 @@ const PopupDemo: React.FC = () => {
     load();
   }, [showPopup]);
 
-  const isDisabled = allTracking || !hasProjects || hasRunningProgram;
+  const isDisabled = anyTracking || allTracking || !hasProjects;
 
   const handleOpenPopup = () => {
     if (isDisabled) return;
