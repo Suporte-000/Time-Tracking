@@ -153,11 +153,6 @@ export const browserApi = {
     const stored = localStorage.getItem('timetrack_monitored_apps');
     if (stored) return JSON.parse(stored);
     const defaults = [
-      { id: 'app-1', name: 'Visual Studio Code', processName: 'Code',   icon: '💻', isEnabled: true, createdAt: '' },
-      { id: 'app-2', name: 'Google Chrome',       processName: 'chrome', icon: '🌐', isEnabled: true, createdAt: '' },
-      { id: 'app-3', name: 'Figma',               processName: 'Figma',  icon: '🎨', isEnabled: true, createdAt: '' },
-      { id: 'app-4', name: 'Microsoft Teams',     processName: 'Teams',  icon: '💬', isEnabled: true, createdAt: '' },
-      { id: 'app-5', name: 'Notion',              processName: 'Notion', icon: '📝', isEnabled: true, createdAt: '' },
     ];
     localStorage.setItem('timetrack_monitored_apps', JSON.stringify(defaults));
     return defaults;

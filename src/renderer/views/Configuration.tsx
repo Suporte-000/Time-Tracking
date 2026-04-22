@@ -3,11 +3,6 @@ import type { SystemConfig } from '../../shared/types';
 import { useI18n } from '../i18nContext';
 
 const APP_ICONS: Record<string, string> = {
-  'visual studio code': '💻', 'code': '💻',
-  'google chrome': '🌐', 'chrome': '🌐',
-  'figma': '🎨',
-  'microsoft teams': '💬', 'teams': '💬',
-  'notion': '📝',
 };
 const getIcon = (name: string) => APP_ICONS[name.toLowerCase()] ?? '🖥️';
 

@@ -202,31 +202,6 @@ export class DatabaseService {
     }
 
     // Check if monitored apps exist
-    const appsCount = this.db.prepare('SELECT COUNT(*) as count FROM monitored_apps').get() as {
-      count: number;
-    };
-
-    if (appsCount.count === 0) {
-      const defaultApps = [
-        { name: 'Visual Studio Code', processName: 'Code', icon: '💻' },
-        { name: 'Google Chrome', processName: 'chrome', icon: '🌐' },
-        { name: 'Figma', processName: 'Figma', icon: '🎨' },
-        { name: 'Microsoft Teams', processName: 'Teams', icon: '💬' },
-        { name: 'Notion', processName: 'Notion', icon: '📝' },
-      ];
-
-      const stmt = this.db.prepare(`
-        INSERT INTO monitored_apps (id, name, processName, icon, isEnabled, createdAt)
-        VALUES (?, ?, ?, ?, 1, ?)
-      `);
-
-      for (const app of defaultApps) {
-        stmt.run(this.generateId(), app.name, app.processName, app.icon, new Date().toISOString());
-      }
-
-      console.log('Default monitored apps created');
-    }
-
     // No default projects — user creates their own
   }
 

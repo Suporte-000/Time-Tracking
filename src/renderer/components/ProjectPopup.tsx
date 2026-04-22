@@ -12,11 +12,6 @@ interface ProjectPopupProps {
 }
 
 const APP_ICONS: Record<string, string> = {
-  'visual studio code': '💻', 'code': '💻',
-  'google chrome': '🌐', 'chrome': '🌐',
-  'figma': '🎨',
-  'microsoft teams': '💬', 'teams': '💬',
-  'notion': '📝',
   'timetrack': '⏱',
   'msedge': '🌐', 'edge': '🌐',
 };
