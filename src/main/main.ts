@@ -729,7 +729,10 @@ class TimeTrackApp {
         const delay = (config?.popupDelay || 2) * 60 * 1000;
         this._unregisteredTimer = setTimeout(() => {
           this._unregisteredTimer = null;
-          if (this.currentActiveProcess !== processName) return; // user moved on
+          // Cancel if user is now on a registered program
+          const currentProgs = this.db?.getProjectPrograms() || [];
+          const currentIsRegistered = currentProgs.some(p => p.processName.toLowerCase() === (this.currentActiveProcess || '').toLowerCase());
+          if (currentIsRegistered) return;
           const entries = this.db?.getTimeEntries();
           const active = entries?.filter(e => !e.endTime) || [];
           for (const entry of active) {
