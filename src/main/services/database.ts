@@ -171,6 +171,12 @@ export class DatabaseService {
       this.db.exec(`ALTER TABLE config ADD COLUMN language TEXT NOT NULL DEFAULT 'en'`);
     } catch { /* column already exists */ }
 
+    // Migrate: add system parameter columns if missing
+    try { this.db.exec(`ALTER TABLE config ADD COLUMN inactivityTimeout INTEGER NOT NULL DEFAULT 5`); } catch {}
+    try { this.db.exec(`ALTER TABLE config ADD COLUMN popupDelay INTEGER NOT NULL DEFAULT 2`); } catch {}
+    try { this.db.exec(`ALTER TABLE config ADD COLUMN popupAutoClose INTEGER NOT NULL DEFAULT 30`); } catch {}
+    try { this.db.exec(`ALTER TABLE config ADD COLUMN backupInterval INTEGER NOT NULL DEFAULT 60`); } catch {}
+
     // Migrate: enable startWithWindows for existing installs
     try {
       this.db.exec(`UPDATE config SET startWithWindows = 1 WHERE id = 1 AND startWithWindows = 0`);
