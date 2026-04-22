@@ -881,8 +881,8 @@ class TimeTrackApp {
 
   private createPopupWindow(appName: string, processName: string, switchedFrom?: string) {
     if (this.popupWindow && !this.popupWindow.isDestroyed()) {
-      this.popupWindow.focus();
-      return;
+      this.popupWindow.close();
+      this.popupWindow = null;
     }
 
     // Don't show popup if there are no projects
