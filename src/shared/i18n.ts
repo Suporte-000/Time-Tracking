@@ -475,9 +475,9 @@ const translations = {
     'pt-BR': 'seg',
   },
   'config.hour': {
-    'en': '1h',
-    'es': '1h',
-    'pt-BR': '1h',
+    'en': 'h',
+    'es': 'h',
+    'pt-BR': 'h',
   },
   'config.language': {
     'en': 'Language',
