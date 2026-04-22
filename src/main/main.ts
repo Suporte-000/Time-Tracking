@@ -198,6 +198,7 @@ class TimeTrackApp {
   private _scanRunning = false;
   private _checkRunning = false;
   private _popupCooldown: Set<string> = new Set(); // processes with popup already open/recently shown
+  private _unregisteredTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     // Single instance lock — if another instance is already running, focus it and quit this one
@@ -299,6 +300,7 @@ class TimeTrackApp {
       if (this.processScanInterval) clearInterval(this.processScanInterval);
       for (const timer of this.popupTimers.values()) clearTimeout(timer);
       this.popupTimers.clear();
+      if (this._unregisteredTimer) { clearTimeout(this._unregisteredTimer); this._unregisteredTimer = null; }
       const entries = this.db?.getTimeEntries() || [];
       const active = entries.filter(e => !e.endTime);
       for (const entry of active) {
@@ -715,10 +717,35 @@ class TimeTrackApp {
       this.currentActiveProcess = processName;
     }
 
-    // Skip if no registered programs exist
-    if ((this.db?.getProjectPrograms() || []).length === 0) {
-      console.log(`[AutoTrack] Skipped "${processName}": no registered programs in SQLite`);
+    // If switching to an unregistered program, start a timer to stop active tracking
+    const registeredPrograms = this.db?.getProjectPrograms() || [];
+    const isRegistered = registeredPrograms.some(p => p.processName.toLowerCase() === processName.toLowerCase());
+    if (!isRegistered) {
+      if (!this._unregisteredTimer) {
+        const config = this.db?.getConfig();
+        const delay = (config?.popupDelay || 2) * 60 * 1000;
+        this._unregisteredTimer = setTimeout(() => {
+          this._unregisteredTimer = null;
+          if (this.currentActiveProcess !== processName) return; // user moved on
+          const entries = this.db?.getTimeEntries();
+          const active = entries?.filter(e => !e.endTime) || [];
+          for (const entry of active) {
+            this.db?.stopTracking(entry.id, 'auto');
+            this.sync?.syncEntry(entry.id).catch(() => {});
+            if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+              this.mainWindow.webContents.send('tracking-auto-stopped', entry.id);
+            }
+            console.log(`[AutoTrack] Stopped "${entry.processName}" — user on unregistered program for ${delay / 1000}s`);
+          }
+        }, delay);
+      }
       return;
+    }
+
+    // User is on a registered program — cancel any pending unregistered timer
+    if (this._unregisteredTimer) {
+      clearTimeout(this._unregisteredTimer);
+      this._unregisteredTimer = null;
     }
 
     // Check if this process is registered by admin in project_programs
