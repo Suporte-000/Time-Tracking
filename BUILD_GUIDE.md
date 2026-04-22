@@ -1,317 +1,123 @@
-# TimeTrack - Build & Deployment Guide
+TimeTrack Build Guide
 
-## Milestone 3 - Complete Distribution Package
 
-This guide covers building and deploying TimeTrack for Windows with all Milestone 3 features completed.
+Requirements
 
----
+The build runs on Linux or Windows. You need Node.js 20 or higher and npm 10 or higher. To verify:
 
-## Prerequisites
+    node -v
+    npm -v
 
-### System Requirements
-- **OS**: Windows 10/11 (for building Windows installer)
-- **Node.js**: 20.x or higher
-- **npm**: 10.x or higher
-- **RAM**: 8GB minimum (for build process)
-- **Disk Space**: 2GB free
+The project uses better-sqlite3, which is a native Node module. It requires Python 3 and a C++ build toolchain to compile during npm install. On most systems this is already present. If it is missing, the install step will tell you.
 
-### Install Dependencies
 
-```bash
-cd TimeTrack
-npm install
-```
+Setup
 
----
+Clone or extract the project, then install dependencies:
 
-## Development Mode
+    cd TimeTrack
+    npm install
 
-### 1. Start Development Server
+This takes a minute or two the first time.
 
-```bash
-npm run dev
-```
 
-This will:
-1. Start Vite dev server on `http://localhost:5173`
-2. Launch Electron with hot-reload enabled
-3. Open DevTools for debugging
+Development
 
-### 2. Test Features
+To run the app locally for development:
 
-**Popup Testing:**
-- Change active window to a monitored app
-- Wait 2 minutes (configurable in settings)
-- Popup should appear automatically
+    npm run dev
 
-**History Testing:**
-- Navigate to History view
-- Select different dates
-- Export CSV file
+This starts the Vite dev server and launches Electron. The renderer reloads automatically when you change frontend files. Main process changes require a restart.
 
-**System Tray:**
-- Minimize to tray
-- Right-click tray icon
-- Check live tracking status
+The log file is written to the userData directory. On Windows that is:
 
----
+    C:\Users\[username]\AppData\Roaming\timetrack\timetrack.log
 
-## Production Build
+On Linux it is:
 
-### Step 1: Clean Previous Builds
+    ~/.config/timetrack/timetrack.log
 
-```bash
-# Windows PowerShell
-Remove-Item -Recurse -Force dist, dist-electron, release -ErrorAction SilentlyContinue
 
-# Linux/Mac
-rm -rf dist dist-electron release
-```
+Production Build
 
-### Step 2: Compile TypeScript (Main Process)
+The production build compiles TypeScript and bundles the renderer into static files. Run:
 
-```bash
-npx tsc --project tsconfig.node.json
-```
+    npm run build
 
-This compiles:
-- `src/main/**/*.ts` → `dist-electron/main/`
-- Includes all services: database, windowMonitor, activityMonitor
+Output goes to:
 
-### Step 3: Build React App (Renderer Process)
+    dist/             renderer (React)
+    dist-electron/    main process and preload
 
-```bash
-npm run build
-```
+
+Packaging for Windows
+
+The packager produces an unpacked folder rather than an installer. This is the intended distribution format.
+
+    npm run build:win
 
 This creates:
-- `dist/` - Optimized React production build
-- Minified JS/CSS
-- Production-ready assets
 
-### Step 4: Build Windows Installer
+    release/win-unpacked/    the complete application folder
 
-```bash
-npm run build:win
-```
+Because the build runs on Linux, the fg-window.exe helper (used for focus detection) is not automatically included by electron-builder. After the build completes, copy it manually:
 
-This creates **two** installers in `release/`:
+    cp src/helpers/fg-window.exe release/win-unpacked/resources/
 
-1. **`TimeTrack-Setup-1.0.0.exe`** - NSIS installer
-   - User-friendly installation wizard
-   - Desktop shortcut creation
-   - Start menu integration
-   - Uninstaller included
+Then create the archive to send to users:
 
-2. **`TimeTrack-1.0.0.exe`** - Portable version
-   - No installation required
-   - Run directly from USB/network drive
-   - Stores data in app directory
+    tar -czf release/TimeTrack-win-x64.tar.gz -C release win-unpacked
 
----
+The resulting file is around 150 MB.
 
-## Distribution
 
-### Installer Features
+Distributing to Users
 
-**NSIS Installer Options:**
-- ✅ Custom installation directory
-- ✅ Desktop shortcut
-- ✅ Start Menu shortcut
-- ✅ Per-user installation (no admin required)
-- ✅ Preserves data on uninstall
+Send users the tar.gz archive. They extract it and run TimeTrack.exe from the win-unpacked folder. No installation is required.
 
-**File Size:**
-- Installer: ~120-150 MB (includes Electron runtime)
-- Installed size: ~250-300 MB
+The .env file must be present in the application folder or in the user's AppData\Roaming\timetrack\ directory. It contains the PostgreSQL connection string. The application will copy a bundled .env to userData on first run if it finds one in the resources folder.
 
-### Testing the Installer
+To bundle the .env with the build, place it in the resources folder before packaging:
 
-1. **Test on clean Windows VM:**
-   ```bash
-   # Run installer
-   TimeTrack-Setup-1.0.0.exe
-   ```
+    cp .env release/win-unpacked/resources/
 
-2. **Verify installation:**
-   - Check desktop shortcut
-   - Launch from Start Menu
-   - Verify tray icon appears
-   - Test process monitoring
-   - Create time entries
-   - Export CSV
+Users should not need to do anything with this file themselves.
 
-3. **Test uninstallation:**
-   - Use Windows "Add/Remove Programs"
-   - Verify data is preserved (if needed)
-   - Check clean removal
 
----
+Environment File
 
-## Configuration After Install
+The .env file contains one line:
 
-### First Run Setup
+    DATABASE_URL=postgresql://user:password@host:5432/dbname
 
-1. **Configure Monitored Apps:**
-   - Go to "Gerenciamento" view
-   - Enable apps to monitor (VS Code, Chrome, etc.)
+Replace the values with the actual database credentials. This file should never be committed to the repository.
 
-2. **Set Popup Delay:**
-   - Go to "Configurações"
-   - Set "Delay do Popup" (default: 2 minutes)
-   - Set "Tempo de Inatividade" (default: 5 minutes)
 
-3. **Import Projects:**
-   - Upload CSV/XLSX with projects
-   - Or manually create projects
+Rebuilding fg-window.exe
 
-4. **System Tray:**
-   - App minimizes to tray on close
-   - Right-click for quick actions
+fg-window.exe is a small C# program that reads the foreground window from Windows. The source is at src/helpers/fg-window.cs. To recompile it on a Windows machine:
 
----
+    C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /out:fg-window.exe fg-window.cs
 
-## Milestone 3 Features Checklist
+Copy the resulting fg-window.exe back to src/helpers/ and into release/win-unpacked/resources/ before packaging.
 
-### ✅ Completed Features
 
-1. **Smart Popup Window**
-   - [x] Appears after 2 min continuous app use
-   - [x] Shows AI-powered project suggestion
-   - [x] Searchable project list
-   - [x] 30-second auto-close countdown
-   - [x] Clean, professional UI
+Troubleshooting
 
-2. **Delayed Popup Logic**
-   - [x] Tracks continuous app usage
-   - [x] Cancels timer on app switch
-   - [x] Prevents duplicate popups
-   - [x] Checks for active tracking
+The app does not start
+Check that fg-window.exe is present in the resources folder. If it is missing, focus detection falls back to PowerShell, which is slower but functional.
 
-3. **Detailed History View**
-   - [x] Date navigator (prev/next)
-   - [x] Daily summary cards (total time, projects, entries)
-   - [x] Time entry list with project colors
-   - [x] Real-time duration display
-   - [x] Status indicators
+better-sqlite3 fails to load
+This means the native module was built for a different Node or Electron version. Run:
 
-4. **CSV Export**
-   - [x] Excel-compatible format (UTF-8 BOM)
-   - [x] Semicolon-delimited
-   - [x] Columns: Date, Start, End, Duration, Project, Subproject, App, Status
-   - [x] Downloads as `timetrack_YYYY-MM-DD.csv`
+    npx electron-rebuild
 
-5. **Enhanced System Tray**
-   - [x] Branded teal icon
-   - [x] Live tracking status
-   - [x] Context menu with shortcuts
-   - [x] Dynamic tooltip
-   - [x] Auto-updates every 5 seconds
+Then rebuild.
 
-6. **Windows Installer**
-   - [x] NSIS installer package
-   - [x] Portable .exe version
-   - [x] Desktop/Start Menu shortcuts
-   - [x] Custom installation directory
-   - [x] Data preservation on uninstall
+The database is corrupted
+Delete the database file and restart. The app will create a fresh one. Any entries that were synced to PostgreSQL can be pulled back down by re-registering the user name.
 
----
+    C:\Users\[username]\AppData\Roaming\timetrack\timetrack.db
 
-## Troubleshooting
-
-### Build Errors
-
-**Error: "Cannot find module 'better-sqlite3'"**
-```bash
-npm install --save-dev electron-rebuild
-npx electron-rebuild
-```
-
-**Error: "TypeScript compilation failed"**
-```bash
-npm run typecheck
-# Fix all errors, then:
-npm run build
-```
-
-**Error: "Vite build failed"**
-```bash
-# Clear cache
-rm -rf node_modules/.vite
-npm run dev:vite
-```
-
-### Runtime Issues
-
-**Popup doesn't appear:**
-- Check monitored apps are enabled
-- Verify popup delay setting (default: 2 min)
-- Check console for errors (`Ctrl+Shift+I`)
-
-**Database errors:**
-- Delete `%APPDATA%/timetrack/timetrack.db`
-- Restart app (will recreate database)
-
-**Tray icon missing:**
-- Restart app
-- Check Windows notification area settings
-
----
-
-## Deployment to Team
-
-### Internal Distribution
-
-1. **Host installer on shared drive:**
-   ```
-   \\company-server\apps\TimeTrack\TimeTrack-Setup-1.0.0.exe
-   ```
-
-2. **Send installation email:**
-   ```
-   Subject: TimeTrack - Novo Sistema de Controle de Horas
-
-   Olá equipe,
-
-   O TimeTrack está pronto para uso! Baixe e instale:
-   \\company-server\apps\TimeTrack\TimeTrack-Setup-1.0.0.exe
-
-   Após instalação:
-   1. Configure os aplicativos a monitorar
-   2. Importe seus projetos (ou crie manualmente)
-   3. Deixe rodando em segundo plano
-
-   O app rastreará automaticamente seu tempo!
-   ```
-
-3. **VPS Server Setup (if using Milestone 2 sync):**
-   - Deploy Node.js API to VPS
-   - Configure PostgreSQL database
-   - Update app config with server URL
-
----
-
-## Next Steps (Post-Milestone 3)
-
-### Potential Enhancements:
-- [ ] Auto-update functionality
-- [ ] Weekly/monthly reports
-- [ ] Project time budgets
-- [ ] Team leaderboards
-- [ ] Mobile companion app
-- [ ] Slack/Teams integration
-
----
-
-## Support
-
-For issues or questions:
-1. Check logs: `%APPDATA%/timetrack/logs/`
-2. Open DevTools: `Ctrl+Shift+I` in app
-3. Contact: dev-team@company.com
-
----
-
-**Milestone 3 Status: ✅ COMPLETE**
-
-All features implemented and tested. Ready for production deployment!
+Changes to main process code are not reflected
+The main process is not hot-reloaded. Restart the Electron process after editing anything under src/main/.
