@@ -77,7 +77,7 @@ const PopupDemo: React.FC = () => {
     load();
   }, [showPopup]);
 
-  const isDisabled = allTracking || !hasProjects || !hasRunningProgram;
+  const isDisabled = allTracking || !hasProjects || hasRunningProgram;
 
   const handleOpenPopup = () => {
     if (isDisabled) return;
