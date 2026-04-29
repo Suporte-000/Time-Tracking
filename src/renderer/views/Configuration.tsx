@@ -114,7 +114,6 @@ const Configuration: React.FC = () => {
               <div>
                 {[
                   { label: t('config.inactivity'),  key: 'inactivityTimeout' as const, unit: t('config.minutes'), min: 1,  max: 60  },
-                  { label: t('config.popupDelay'),  key: 'popupDelay'        as const, unit: t('config.minutes'), min: 1,  max: 60  },
                   { label: t('config.autoClose'),   key: 'popupAutoClose'    as const, unit: t('config.seconds'), min: 10, max: 300 },
                   { label: t('config.backup'),      key: 'backupInterval'    as const, unit: t('config.hour'),    min: 1,  max: 24  },
                 ].map(row => (
@@ -129,6 +128,23 @@ const Configuration: React.FC = () => {
                     />
                   </div>
                 ))}
+                {/* Popup delay — preset dropdown */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #111722' }}>
+                  <div>
+                    <span style={{ fontSize: '14px', color: '#A0AEC0' }}>{t('config.popupDelay')}</span>
+                    <div style={{ fontSize: '11px', color: '#4A5568', marginTop: '2px' }}>Lower values may cause popup fatigue on frequent window switches</div>
+                  </div>
+                  <select
+                    value={config.popupDelay}
+                    onChange={e => handleConfigNumber('popupDelay', Number(e.target.value))}
+                    style={{ padding: '6px 10px', background: '#0A0E14', border: '1px solid #1E2530', borderRadius: '7px', color: '#E2E8F0', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
+                  >
+                    <option value={0.5}>30 seconds</option>
+                    <option value={1}>1 minute</option>
+                    <option value={2}>2 minutes</option>
+                    <option value={5}>5 minutes</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}

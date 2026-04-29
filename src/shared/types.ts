@@ -110,6 +110,7 @@ export interface TeamTimeEntry {
   user_color: string;
   project_id: string | null;
   project_name: string | null;
+  project_subproject: string | null;
   app_name: string;
   process_name: string;
   start_time: string;

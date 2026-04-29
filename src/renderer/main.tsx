@@ -56,7 +56,7 @@ declare global {
       setManagerPin: (pin: string) => Promise<boolean>;
       verifyManagerPin: (pin: string) => Promise<boolean>;
       hasManagerPin: () => Promise<boolean>;
-      exportWeeklyReport: (userId: string, userName: string, date?: string) => Promise<string | null>;
+      exportWeeklyReport: (userId: string, userName: string, startDate?: string, endDate?: string, filterUserId?: string, filterUserName?: string) => Promise<string | null>;
       // Project programs
       getProjectPrograms: (projectId?: string) => Promise<any[]>;
       addProjectProgram: (projectId: string | null, processName: string, displayName: string) => Promise<any>;

@@ -17,6 +17,7 @@ export interface TeamTimeEntry {
   user_color: string;
   project_id: string | null;
   project_name: string | null;
+  project_subproject: string | null;
   app_name: string;
   process_name: string;
   start_time: string;
@@ -357,16 +358,23 @@ export class PostgresService {
   }
 
   async getTeamEntriesForDate(date: string): Promise<TeamTimeEntry[]> {
+    return this.getTeamEntriesForRange(date, date);
+  }
+
+  async getTeamEntriesForRange(startDate: string, endDate: string, userId?: string): Promise<TeamTimeEntry[]> {
     if (!this.connected) return [];
+    const conditions = [`DATE(te.start_time) >= $1`, `DATE(te.start_time) <= $2`];
+    const params: any[] = [startDate, endDate];
+    if (userId) { params.push(userId); conditions.push(`te.user_id = $${params.length}`); }
     const res = await this.pool!.query(
       `SELECT te.*, u.name as user_name, u.color as user_color,
-              p.name as project_name
+              p.name as project_name, p.subproject as project_subproject
        FROM time_entries te
        JOIN users u ON te.user_id = u.id
        LEFT JOIN projects p ON te.project_id = p.id
-       WHERE DATE(te.start_time) = $1
+       WHERE ${conditions.join(' AND ')}
        ORDER BY te.start_time DESC`,
-      [date]
+      params
     );
     return res.rows;
   }
@@ -422,10 +430,14 @@ export class PostgresService {
   // ==================== AUDIT LOG ====================
 
   async getAuditLogForDate(date: string): Promise<AuditLogEntry[]> {
+    return this.getAuditLogForRange(date, date);
+  }
+
+  async getAuditLogForRange(startDate: string, endDate: string): Promise<AuditLogEntry[]> {
     if (!this.connected) return [];
     const res = await this.pool!.query(
-      `SELECT * FROM audit_log WHERE DATE(created_at) = $1 ORDER BY created_at DESC`,
-      [date]
+      `SELECT * FROM audit_log WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2 ORDER BY created_at DESC`,
+      [startDate, endDate]
     );
     return res.rows;
   }

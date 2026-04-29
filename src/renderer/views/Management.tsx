@@ -310,6 +310,13 @@ const Management: React.FC = () => {
   const [showAddStandaloneProgram, setShowAddStandaloneProgram] = useState(false);
   const [adjustEntry, setAdjustEntry] = useState<TeamTimeEntry | null>(null);
   const [adjustMember, setAdjustMember] = useState<TeamMember | null>(null);
+  const [editMember, setEditMember] = useState<TeamMember | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('');
+  const [editGoal, setEditGoal] = useState('');
+  const [showExportRange, setShowExportRange] = useState(false);
+  const [exportStart, setExportStart] = useState('');
+  const [exportEnd, setExportEnd] = useState('');
 
   // data
   const [projects, setProjects] = useState<any[]>([]);
@@ -488,6 +495,47 @@ const Management: React.FC = () => {
 
       {/* Modals */}
       {showChangePin && <ChangePinModal onClose={() => setShowChangePin(false)} />}
+
+      {/* Export date range modal */}
+      {showExportRange && localUser && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px', width:'320px' }}>
+            <div style={{ fontSize:'16px', fontWeight:700, color:'#E2E8F0', marginBottom:'20px' }}>Export date range</div>
+            <label style={labelStyle}>Start date</label>
+            <input type="date" value={exportStart} max={today} onChange={e => setExportStart(e.target.value)} style={{ ...inputStyle, marginBottom:'12px' }} />
+            <label style={labelStyle}>End date</label>
+            <input type="date" value={exportEnd} min={exportStart} max={today} onChange={e => setExportEnd(e.target.value)} style={{ ...inputStyle, marginBottom:'20px' }} />
+            <div style={{ display:'flex', gap:'10px' }}>
+              <button className="btn btn-primary" style={{ flex:1 }} onClick={() => { window.electron.exportWeeklyReport(localUser.id, localUser.name, exportStart, exportEnd); setShowExportRange(false); }}>Export</button>
+              <button className="btn" style={{ flex:1 }} onClick={() => setShowExportRange(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit member modal */}
+      {editMember && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px', width:'320px' }}>
+            <div style={{ fontSize:'16px', fontWeight:700, color:'#E2E8F0', marginBottom:'20px' }}>Edit member</div>
+            <label style={labelStyle}>Name</label>
+            <input value={editName} onChange={e => setEditName(e.target.value)} style={{ ...inputStyle, marginBottom:'12px' }} />
+            <label style={labelStyle}>Color</label>
+            <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)} style={{ width:'100%', height:'36px', background:'#0A0E14', border:'1px solid #1E2530', borderRadius:'7px', cursor:'pointer', marginBottom:'12px' }} />
+            <label style={labelStyle}>Daily goal (hours)</label>
+            <input type="number" value={editGoal} min={1} max={24} onChange={e => setEditGoal(e.target.value)} style={{ ...inputStyle, marginBottom:'20px' }} />
+            <div style={{ display:'flex', gap:'10px' }}>
+              <button className="btn btn-primary" style={{ flex:1 }} onClick={async () => {
+                await window.electron.updateTeamMember(editMember.id, { name: editName, color: editColor, goal_hours: Number(editGoal) });
+                setEditMember(null);
+                const m = await window.electron.getTeamMembers();
+                setMembers(m);
+              }}>Save</button>
+              <button className="btn" style={{ flex:1 }} onClick={() => setEditMember(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       {(showProjectModal || editProject) && (
         <ProjectModal project={editProject} onSave={handleCreateProject} onClose={() => { setShowProjectModal(false); setEditProject(null); }} />
       )}
@@ -526,7 +574,7 @@ const Management: React.FC = () => {
             </div>
           </div>
           <div style={{ display:'flex', gap:'10px', alignItems:'center' }}>
-            <button onClick={() => localUser && window.electron.exportWeeklyReport(localUser.id, localUser.name, selectedDate)} className="btn btn-primary" style={{ fontSize:'12px' }}>
+            <button onClick={() => { setExportStart(selectedDate); setExportEnd(selectedDate); setShowExportRange(true); }} className="btn btn-primary" style={{ fontSize:'12px' }}>
               ↓ {t('management.weeklyReport')}
             </button>
             <button onClick={() => setShowChangePin(true)} className="btn" style={{ fontSize:'12px' }}>{t('management.changePassword')}</button>
@@ -661,7 +709,7 @@ const Management: React.FC = () => {
 
           {/* Members table */}
           <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'12px', marginBottom:'24px', overflow:'hidden' }}>
-            <div style={{ padding:'10px 16px', borderBottom:'1px solid #1A1F2B', display:'grid', gridTemplateColumns:'180px 1fr 80px 70px 80px', gap:'12px' }}>
+            <div style={{ padding:'10px 16px', borderBottom:'1px solid #1A1F2B', display:'grid', gridTemplateColumns:'180px 1fr 80px 70px 200px', gap:'12px' }}>
               {[t('management.colMember'),t('management.colProjects'),t('management.colTotal'),t('management.colGoal'),t('management.colAction')].map(h => (
                 <div key={h} style={{ fontSize:'10px', fontWeight:700, color:'#4A5568', letterSpacing:'0.8px' }}>{h}</div>
               ))}
@@ -675,7 +723,7 @@ const Management: React.FC = () => {
               const goalSecs = member.goal_hours * 3600;
               const pct = Math.min(100, Math.round((total / goalSecs) * 100));
               return (
-                <div key={member.id} style={{ padding:'14px 16px', borderBottom:'1px solid #1A1F2B', display:'grid', gridTemplateColumns:'180px 1fr 80px 70px 80px', gap:'12px', alignItems:'center' }}>
+                <div key={member.id} style={{ padding:'14px 16px', borderBottom:'1px solid #1A1F2B', display:'grid', gridTemplateColumns:'180px 1fr 80px 70px 200px', gap:'12px', alignItems:'center' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
                     <div style={{ width:'32px', height:'32px', borderRadius:'8px', background:member.color, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:700, color:'white' }}>
                       {member.initials}
@@ -690,8 +738,11 @@ const Management: React.FC = () => {
                   </div>
                   <div style={{ fontSize:'13px', fontWeight:600, color:'#E2E8F0' }}>{formatDuration(total)}</div>
                   <div style={{ fontSize:'13px', fontWeight:700, color: pct>=100?'#1FB8A0':pct>=75?'#F6AD55':'#FC8181' }}>{pct}%</div>
-                  <div>
-                    <button onClick={() => setAdjustMember(member)} className="btn" style={{ fontSize:'11px', padding:'4px 10px' }}>{t('management.adjust')}</button>
+                  <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+                    <button onClick={() => setAdjustMember(member)} className="btn" style={{ fontSize:'11px', padding:'4px 8px' }}>{t('management.adjust')}</button>
+                    <button onClick={() => { setEditMember(member); setEditName(member.name); setEditColor(member.color); setEditGoal(String(member.goal_hours)); }} className="btn" style={{ fontSize:'11px', padding:'4px 8px' }}>Edit</button>
+                    <button onClick={() => { setExportStart(selectedDate); setExportEnd(selectedDate); setShowExportRange(false); localUser && window.electron.exportWeeklyReport(localUser.id, localUser.name, selectedDate, selectedDate, member.id, member.name); }} className="btn" style={{ fontSize:'11px', padding:'4px 8px' }}>↓</button>
+                    <button onClick={async () => { if (confirm(`Delete ${member.name}?`)) { await window.electron.removeTeamMember(member.id); setMembers(m => m.filter(x => x.id !== member.id)); } }} className="btn" style={{ fontSize:'11px', padding:'4px 8px', color:'#FC8181' }}>✕</button>
                   </div>
                 </div>
               );

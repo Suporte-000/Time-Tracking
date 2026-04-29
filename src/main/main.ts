@@ -634,14 +634,8 @@ class TimeTrackApp {
         const projectId = linked?.projectId ?? null;
         const displayName = linked?.displayName ?? prog.displayName;
 
-        // Standalone (no project) → show popup for user to pick project
-        if (!projectId) {
-          if (this._popupCooldown.has(prog.processName)) continue; // popup already open
-          this._popupCooldown.add(prog.processName);
-          console.log(`[Scan] Standalone program "${prog.processName}" — showing popup`);
-          this.createPopupWindow(displayName, prog.processName);
-          break; // one at a time
-        }
+        // Standalone (no project) → skip; popup is handled by handleWindowChange on focus
+        if (!projectId) continue;
 
         // Project linked → auto-start tracking immediately
         console.log(`[Scan] Auto-starting tracking for "${linked?.projectName}" / "${prog.processName}"`);
@@ -1280,14 +1274,17 @@ class TimeTrackApp {
       return this.pg?.hasManagerPin() ?? false;
     });
 
-    ipcMain.handle(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, async (_, _userId: string, _userName: string, date?: string) => {
+    ipcMain.handle(IPC_CHANNELS.EXPORT_WEEKLY_REPORT, async (_, _userId: string, _userName: string, startDate?: string, endDate?: string, filterUserId?: string, filterUserName?: string) => {
       if (!this.pg) return null;
-      const reportDate = date || new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
+      const start = startDate || today;
+      const end = endDate || start;
+      const reportDate = start === end ? start : `${start}_to_${end}`;
 
       const [entries, members, auditLog] = await Promise.all([
-        this.pg.getTeamEntriesForDate(reportDate),
+        this.pg.getTeamEntriesForRange(start, end, filterUserId),
         this.pg.getTeamMembers(),
-        this.pg.getAuditLogForDate(reportDate),
+        this.pg.getAuditLogForRange(start, end),
       ]);
 
       // Build member totals map
@@ -1306,12 +1303,17 @@ class TimeTrackApp {
 
       const lines: string[] = [];
 
+      const title = filterUserName
+        ? `Report — ${filterUserName} — ${reportDate}`
+        : `Team Report — ${reportDate}`;
+
       // Sheet 1: summary per member
-      lines.push(`Team Report — ${reportDate}`);
+      lines.push(title);
       lines.push('');
       lines.push('MEMBER SUMMARY');
       lines.push('Member,Goal (h),Total,Progress %');
       for (const m of members) {
+        if (filterUserId && m.id !== filterUserId) continue;
         const total = memberTotals.get(m.id) || 0;
         const pct = m.goal_hours > 0 ? Math.round((total / (m.goal_hours * 3600)) * 100) : 0;
         lines.push(`"${m.name}",${m.goal_hours},${fmt(total)},${pct}%`);
@@ -1319,11 +1321,12 @@ class TimeTrackApp {
 
       lines.push('');
       lines.push('TIME ENTRIES');
-      lines.push('Member,Project,App,Start,End,Duration,Adjusted');
+      lines.push('Member,Project,Subproject,App,Start,End,Duration,Adjusted');
       for (const e of entries) {
         lines.push([
           `"${e.user_name}"`,
           `"${e.project_name || 'No Project'}"`,
+          `"${e.project_subproject || ''}"`,
           `"${e.app_name}"`,
           fmtTime(e.start_time),
           fmtTime(e.end_time),
@@ -1354,7 +1357,8 @@ class TimeTrackApp {
       }
 
       const csv = lines.join('\r\n');
-      const savePath = path.join(app.getPath('documents'), `timetrack-team-${reportDate}.csv`);
+      const fileLabel = filterUserName ? `${filterUserName.replace(/\s+/g, '-')}-${reportDate}` : `team-${reportDate}`;
+      const savePath = path.join(app.getPath('documents'), `timetrack-${fileLabel}.csv`);
       fs.writeFileSync(savePath, '\uFEFF' + csv, 'utf8'); // BOM for Excel
       shell.openPath(savePath);
       return savePath;
