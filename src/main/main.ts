@@ -775,8 +775,8 @@ class TimeTrackApp {
     // Check if a DIFFERENT registered program is currently being tracked
     const currentlyTrackedEntry = activeEntries?.find(e => !e.endTime && e.processName !== processName);
     if (currentlyTrackedEntry) {
-      if (this._popupCooldown.has(processName)) return;
-      if (this.popupTimers.has(processName)) return; // switch timer already pending
+      if (this._popupCooldown.has(processName)) { console.log(`[AutoTrack] Cooldown active for "${processName}", skipping switch`); return; }
+      if (this.popupTimers.has(processName)) { console.log(`[AutoTrack] Switch timer already pending for "${processName}"`); return; }
       this._popupCooldown.add(processName);
       console.log(`[AutoTrack] Switch detected: "${currentlyTrackedEntry.processName}" → "${processName}", waiting ${popupDelay / 1000}s`);
 
@@ -798,6 +798,7 @@ class TimeTrackApp {
             this.mainWindow.webContents.send('tracking-auto-stopped', oldEntry.id);
           }
         }
+        console.log(`[AutoTrack] Switch confirmed: showing popup for "${processName}"`);
         this.createPopupWindow(linked.displayName, processName, currentlyTrackedEntry.processName);
       }, popupDelay);
 
@@ -808,7 +809,7 @@ class TimeTrackApp {
     if (!this.popupTimers.has(processName)) {
       // Standalone (no project linked) → show popup for user to pick project
       if (!linked.projectId) {
-        if (this._popupCooldown.has(processName)) return; // popup already open or recently shown
+        if (this._popupCooldown.has(processName)) { console.log(`[AutoTrack] Cooldown active for "${processName}", skipping standalone popup`); return; }
         this._popupCooldown.add(processName);
         console.log(`[AutoTrack] Standalone program "${processName}" — showing popup`);
         this.createPopupWindow(linked.displayName, processName);
@@ -878,7 +879,7 @@ class TimeTrackApp {
   private createPopupWindow(appName: string, processName: string, switchedFrom?: string) {
     if (this.popupWindow && !this.popupWindow.isDestroyed()) {
       this.popupWindow.close();
-      this.popupWindow = null;
+      // Don't null here — let the closed event handle it to avoid race with new window
     }
 
     // Don't show popup if there are no projects
@@ -896,7 +897,7 @@ class TimeTrackApp {
     const x = workArea.x + workArea.width - popupWidth - margin;
     const y = workArea.y + workArea.height - popupHeight - margin;
 
-    this.popupWindow = new BrowserWindow({
+    const win = new BrowserWindow({
       width: popupWidth,
       height: popupHeight,
       minWidth: popupWidth,
@@ -916,13 +917,15 @@ class TimeTrackApp {
       },
     });
 
+    this.popupWindow = win;
+
     // Force above ALL windows on Windows (fullscreen apps, focused apps, etc.)
-    this.popupWindow.setAlwaysOnTop(true, 'screen-saver');
-    this.popupWindow.setVisibleOnAllWorkspaces(true);
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.setVisibleOnAllWorkspaces(true);
 
     // Center the popup on screen
-    this.popupWindow.center();
-    this.popupWindow.focus();
+    win.center();
+    win.focus();
 
     // Load popup view with query params
     const queryParams = new URLSearchParams({
@@ -932,27 +935,27 @@ class TimeTrackApp {
     });
 
     if (process.env.NODE_ENV === 'development') {
-      this.popupWindow.loadURL(`http://localhost:5173?mode=popup&${queryParams.toString()}`);
-      this.popupWindow.webContents.openDevTools({ mode: 'detach' });
+      win.loadURL(`http://localhost:5173?mode=popup&${queryParams.toString()}`);
+      win.webContents.openDevTools({ mode: 'detach' });
     } else {
-      this.popupWindow.loadFile(path.join(__dirname, '../../dist/index.html'), {
+      win.loadFile(path.join(__dirname, '../../dist/index.html'), {
         query: { mode: 'popup', appName, processName },
       });
     }
 
     // Capture popup renderer console output into the log file
-    this.popupWindow.webContents.on('console-message', (_e, level, message) => {
+    win.webContents.on('console-message', (_e, level, message) => {
       const lvl = ['DEBUG', 'INFO', 'WARN', 'ERROR'][level] ?? 'INFO';
       writeLog(`POPUP-RENDERER:${lvl}`, [message]);
     });
 
-    this.popupWindow.on('closed', () => {
-      this.popupWindow = null;
-      // Release popup cooldown for processName after window closes
-      // Use a short delay so rapid re-open (window flicker) doesn't re-trigger
+    win.on('closed', () => {
+      // Only clear the reference if this window is still the current popup
+      // (prevents a replaced popup from nulling the new popup's reference)
+      if (this.popupWindow === win) this.popupWindow = null;
       setTimeout(() => {
         this._popupCooldown.delete(processName);
-      }, 10000); // 10s cooldown after popup closes before it can appear again
+      }, 10000);
     });
   }
 
