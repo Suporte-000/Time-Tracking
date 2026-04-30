@@ -699,10 +699,10 @@ class TimeTrackApp {
   }
 
   private handleWindowChange(activeWindow: { processName: string; windowTitle: string }) {
-    const processName = activeWindow.processName;
+    const processName = activeWindow.processName.replace(/\.exe$/i, '');
 
     const registeredPrograms = this.db?.getProjectPrograms() || [];
-    const isRegistered = registeredPrograms.some(p => p.processName.toLowerCase() === processName.toLowerCase());
+    const isRegistered = registeredPrograms.some(p => p.processName.replace(/\.exe$/i, '').toLowerCase() === processName.toLowerCase());
 
     // If process changed, only clear the previous registered program's timer when
     // switching to a DIFFERENT registered program — brief detours to unregistered
@@ -727,7 +727,7 @@ class TimeTrackApp {
           this._unregisteredTimer = null;
           // Cancel if user is now on a registered program
           const currentProgs = this.db?.getProjectPrograms() || [];
-          const currentIsRegistered = currentProgs.some(p => p.processName.toLowerCase() === (this.currentActiveProcess || '').toLowerCase());
+          const currentIsRegistered = currentProgs.some(p => p.processName.replace(/\.exe$/i, '').toLowerCase() === (this.currentActiveProcess || '').replace(/\.exe$/i, '').toLowerCase());
           if (currentIsRegistered) return;
           const entries = this.db?.getTimeEntries();
           const active = entries?.filter(e => !e.endTime) || [];

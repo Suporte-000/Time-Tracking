@@ -185,6 +185,9 @@ export class DatabaseService {
     // Migrate: add is_active to team_members if missing
     try { this.db.exec(`ALTER TABLE team_members ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`); } catch {}
 
+    // Migrate: strip .exe suffix from stored processNames
+    this.db.exec(`UPDATE project_programs SET processName = SUBSTR(processName, 1, LENGTH(processName) - 4) WHERE processName LIKE '%.exe' OR processName LIKE '%.EXE'`);
+
     console.log('Database tables initialized');
   }
 
@@ -542,22 +545,24 @@ export class DatabaseService {
   }
 
   getProjectByProcess(processName: string): { projectId: string | null; projectName: string | null; displayName: string } | null {
+    const normalizedProcess = processName.replace(/\.exe$/i, '');
     const row = this.db.prepare(`
       SELECT pp.projectId, p.name as projectName, pp.displayName
       FROM project_programs pp
       LEFT JOIN projects p ON pp.projectId = p.id
-      WHERE pp.processName = ? COLLATE NOCASE
+      WHERE LOWER(pp.processName) = LOWER(?)
       LIMIT 1
-    `).get(processName) as any;
+    `).get(normalizedProcess) as any;
     return row || null;
   }
 
   addProjectProgram(projectId: string | null, processName: string, displayName: string): any {
     const id = this.generateId();
     const createdAt = new Date().toISOString();
+    const normalizedProcess = processName.replace(/\.exe$/i, '');
     this.db.prepare('INSERT OR REPLACE INTO project_programs (id, projectId, processName, displayName, createdAt) VALUES (?, ?, ?, ?, ?)')
-      .run(id, projectId ?? null, processName, displayName, createdAt);
-    return { id, projectId: projectId ?? null, processName, displayName, createdAt };
+      .run(id, projectId ?? null, normalizedProcess, displayName, createdAt);
+    return { id, projectId: projectId ?? null, processName: normalizedProcess, displayName, createdAt };
   }
 
   removeProjectProgram(id: string): boolean {
