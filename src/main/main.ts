@@ -1360,8 +1360,18 @@ class TimeTrackApp {
 
       const csv = lines.join('\r\n');
       const fileLabel = filterUserName ? `${filterUserName.replace(/\s+/g, '-')}-${reportDate}` : `team-${reportDate}`;
-      const savePath = path.join(app.getPath('documents'), `timetrack-${fileLabel}.csv`);
-      fs.writeFileSync(savePath, '\uFEFF' + csv, 'utf8'); // BOM for Excel
+      let savePath = path.join(app.getPath('documents'), `timetrack-${fileLabel}.csv`);
+      try {
+        fs.writeFileSync(savePath, '\uFEFF' + csv, 'utf8'); // BOM for Excel
+      } catch (e: any) {
+        if (e.code === 'EBUSY' || e.code === 'EACCES') {
+          // File is open in another program \u2014 save with timestamp suffix instead
+          savePath = path.join(app.getPath('documents'), `timetrack-${fileLabel}-${Date.now()}.csv`);
+          fs.writeFileSync(savePath, '\uFEFF' + csv, 'utf8');
+        } else {
+          throw e;
+        }
+      }
       shell.openPath(savePath);
       return savePath;
     });

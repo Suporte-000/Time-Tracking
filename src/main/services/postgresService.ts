@@ -244,6 +244,11 @@ export class PostgresService {
       `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`
     ).catch(() => {});
 
+    // Migrate: allow NULL in audit_log.manager_id (needed for soft-deleted managers)
+    await this.pool!.query(
+      `ALTER TABLE audit_log ALTER COLUMN manager_id DROP NOT NULL`
+    ).catch(() => {});
+
     // Set default PIN (12345678) if none set
     const cfg = await this.pool!.query('SELECT pin_hash FROM manager_config WHERE id=1');
     if (!cfg.rows[0]?.pin_hash) {
