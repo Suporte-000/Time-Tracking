@@ -317,6 +317,7 @@ const Management: React.FC = () => {
   const [showExportRange, setShowExportRange] = useState(false);
   const [exportStart, setExportStart] = useState('');
   const [exportEnd, setExportEnd] = useState('');
+  const [exportMember, setExportMember] = useState<TeamMember | null>(null);
 
   // data
   const [projects, setProjects] = useState<any[]>([]);
@@ -500,14 +501,20 @@ const Management: React.FC = () => {
       {showExportRange && localUser && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
           <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px', width:'320px' }}>
-            <div style={{ fontSize:'16px', fontWeight:700, color:'#E2E8F0', marginBottom:'20px' }}>Export date range</div>
+            <div style={{ fontSize:'16px', fontWeight:700, color:'#E2E8F0', marginBottom:'4px' }}>Export date range</div>
+            {exportMember && <div style={{ fontSize:'12px', color:'#1FB8A0', marginBottom:'16px' }}>{exportMember.name}</div>}
+            {!exportMember && <div style={{ marginBottom:'16px' }} />}
             <label style={labelStyle}>Start date</label>
             <input type="date" value={exportStart} max={today} onChange={e => setExportStart(e.target.value)} style={{ ...inputStyle, marginBottom:'12px' }} />
             <label style={labelStyle}>End date</label>
             <input type="date" value={exportEnd} min={exportStart} max={today} onChange={e => setExportEnd(e.target.value)} style={{ ...inputStyle, marginBottom:'20px' }} />
             <div style={{ display:'flex', gap:'10px' }}>
-              <button className="btn btn-primary" style={{ flex:1 }} onClick={() => { window.electron.exportWeeklyReport(localUser.id, localUser.name, exportStart, exportEnd); setShowExportRange(false); }}>Export</button>
-              <button className="btn" style={{ flex:1 }} onClick={() => setShowExportRange(false)}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex:1 }} onClick={() => {
+                window.electron.exportWeeklyReport(localUser.id, localUser.name, exportStart, exportEnd, exportMember?.id, exportMember?.name);
+                setShowExportRange(false);
+                setExportMember(null);
+              }}>Export</button>
+              <button className="btn" style={{ flex:1 }} onClick={() => { setShowExportRange(false); setExportMember(null); }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -741,7 +748,7 @@ const Management: React.FC = () => {
                   <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
                     <button onClick={() => setAdjustMember(member)} className="btn" style={{ fontSize:'11px', padding:'4px 8px' }}>{t('management.adjust')}</button>
                     <button onClick={() => { setEditMember(member); setEditName(member.name); setEditColor(member.color); setEditGoal(String(member.goal_hours)); }} className="btn" style={{ fontSize:'11px', padding:'4px 8px' }}>Edit</button>
-                    <button onClick={() => { setExportStart(selectedDate); setExportEnd(selectedDate); setShowExportRange(false); localUser && window.electron.exportWeeklyReport(localUser.id, localUser.name, selectedDate, selectedDate, member.id, member.name); }} className="btn" style={{ fontSize:'11px', padding:'4px 8px' }}>↓</button>
+                    <button onClick={() => { setExportStart(selectedDate); setExportEnd(selectedDate); setExportMember(member); setShowExportRange(true); }} className="btn" style={{ fontSize:'11px', padding:'4px 8px' }}>↓</button>
                     <button onClick={async () => { if (confirm(`Delete ${member.name}?`)) { await window.electron.removeTeamMember(member.id); setMembers(m => m.filter(x => x.id !== member.id)); } }} className="btn" style={{ fontSize:'11px', padding:'4px 8px', color:'#FC8181' }}>✕</button>
                   </div>
                 </div>
