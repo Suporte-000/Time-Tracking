@@ -122,6 +122,11 @@ const api = {
     ipcRenderer.on('tracking-auto-stopped', (_: any, entryId: string) => callback(entryId));
   },
 
+  onTrackingLabel: (callback: (label: string | null) => void) => {
+    ipcRenderer.removeAllListeners('tracking-label');
+    ipcRenderer.on('tracking-label', (_: any, data: { label: string | null }) => callback(data.label));
+  },
+
   // Cleanup listeners
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);

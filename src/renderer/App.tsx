@@ -12,7 +12,8 @@ type View = 'dashboard' | 'popup' | 'history' | 'config' | 'management';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
-  const [isTracking, setIsTracking] = useState(true);
+  const [isTracking, setIsTracking] = useState(false);
+  const [trackingLabel, setTrackingLabel] = useState<string | null>(null);
   const [firstRun, setFirstRun] = useState(false);
 
   useEffect(() => {
@@ -39,6 +40,11 @@ function App() {
       });
     }
 
+    window.electron?.onTrackingLabel?.((label) => {
+      setTrackingLabel(label);
+      setIsTracking(label !== null);
+    });
+
     return () => {
       // Cleanup listeners
       if (window.electronAPI) {
@@ -46,6 +52,7 @@ function App() {
         window.electronAPI.removeAllListeners('user-inactive');
         window.electronAPI.removeAllListeners('user-active');
       }
+      window.electron?.removeAllListeners?.('tracking-label');
     };
   }, []);
 
@@ -57,7 +64,7 @@ function App() {
           setFirstRun(false);
         }} />
       )}
-      <TitleBar isTracking={isTracking} />
+      <TitleBar isTracking={isTracking} trackingLabel={trackingLabel} />
       <div className="app-body">
         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
 

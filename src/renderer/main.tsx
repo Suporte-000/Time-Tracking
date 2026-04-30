@@ -64,6 +64,7 @@ declare global {
       pullFromPostgres: () => Promise<boolean>;
       pushToPostgres: () => Promise<boolean>;
       popupResize: (height: number) => void;
+      onTrackingLabel: (callback: (label: string | null) => void) => void;
     };
   }
 }

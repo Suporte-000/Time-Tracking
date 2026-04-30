@@ -4,11 +4,12 @@ import './TitleBar.css';
 
 interface TitleBarProps {
   isTracking: boolean;
+  trackingLabel: string | null;
 }
 
 const LOCALE_MAP: Record<string, string> = { 'en': 'en-US', 'es': 'es-ES', 'pt-BR': 'pt-BR' };
 
-const TitleBar: React.FC<TitleBarProps> = ({ isTracking }) => {
+const TitleBar: React.FC<TitleBarProps> = ({ isTracking, trackingLabel }) => {
   const { t, lang } = useI18n();
 
   const getCurrentTime = () => {
@@ -39,7 +40,7 @@ const TitleBar: React.FC<TitleBarProps> = ({ isTracking }) => {
       <div className="title-bar-right">
         <div className={`tray-indicator ${isTracking ? 'active' : ''}`}>
           <div className="tray-dot"></div>
-          {isTracking ? t('titlebar.tracking') : t('titlebar.paused')}
+          {isTracking && trackingLabel ? trackingLabel : isTracking ? t('titlebar.tracking') : 'Tracking stopped'}
         </div>
         <div className="tray-time">{currentTime}</div>
       </div>

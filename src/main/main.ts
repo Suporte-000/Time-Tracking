@@ -518,9 +518,11 @@ class TimeTrackApp {
 
       this.tray.setToolTip(`TimeTrack - ${projectName} (${timeStr})`);
       this.mainWindow?.setTitle(`TimeTrack — ${projectName}  •  ${timeStr}`);
+      this.mainWindow?.webContents.send('tracking-label', { label: `${projectName}  •  ${timeStr}` });
     } else {
       this.tray.setToolTip('TimeTrack');
       this.mainWindow?.setTitle('TimeTrack — Controle de Horas por Projeto');
+      this.mainWindow?.webContents.send('tracking-label', { label: null });
     }
   }
 
