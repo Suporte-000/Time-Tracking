@@ -182,6 +182,9 @@ export class DatabaseService {
       this.db.exec(`UPDATE config SET startWithWindows = 1 WHERE id = 1 AND startWithWindows = 0`);
     } catch { /* ignore */ }
 
+    // Migrate: add is_active to team_members if missing
+    try { this.db.exec(`ALTER TABLE team_members ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`); } catch {}
+
     console.log('Database tables initialized');
   }
 
@@ -564,7 +567,7 @@ export class DatabaseService {
   // ==================== TEAM MEMBERS ====================
 
   getTeamMembers(): any[] {
-    return this.db.prepare('SELECT * FROM team_members ORDER BY name').all();
+    return this.db.prepare('SELECT * FROM team_members WHERE is_active = 1 ORDER BY name').all();
   }
 
   upsertTeamMember(member: { id: string; name: string; initials: string; color: string; goal_hours: number }): void {
@@ -576,7 +579,7 @@ export class DatabaseService {
   }
 
   deleteTeamMember(id: string): boolean {
-    const result = this.db.prepare('DELETE FROM team_members WHERE id = ?').run(id);
+    const result = this.db.prepare('UPDATE team_members SET is_active = 0 WHERE id = ?').run(id);
     return result.changes > 0;
   }
 

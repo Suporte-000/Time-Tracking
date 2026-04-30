@@ -118,6 +118,7 @@ export class PostgresService {
         initials TEXT NOT NULL,
         color TEXT NOT NULL DEFAULT '#14919B',
         goal_hours REAL NOT NULL DEFAULT 8.0,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
@@ -238,6 +239,11 @@ export class PostgresService {
     for (const q of fkQueries) {
       await this.pool!.query(q).catch(e => console.warn('[Postgres] FK migration:', e.message));
     }
+    // Migrate: add is_active to users if missing
+    await this.pool!.query(
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`
+    ).catch(() => {});
+
     // Set default PIN (12345678) if none set
     const cfg = await this.pool!.query('SELECT pin_hash FROM manager_config WHERE id=1');
     if (!cfg.rows[0]?.pin_hash) {
@@ -253,7 +259,7 @@ export class PostgresService {
 
   async getTeamMembers(): Promise<TeamMember[]> {
     if (!this.connected) return [];
-    const res = await this.pool!.query('SELECT * FROM users ORDER BY name');
+    const res = await this.pool!.query('SELECT * FROM users WHERE is_active=TRUE ORDER BY name');
     return res.rows;
   }
 
@@ -295,7 +301,7 @@ export class PostgresService {
   }
 
   async removeTeamMember(id: string): Promise<boolean> {
-    const res = await this.pool!.query('DELETE FROM users WHERE id=$1', [id]);
+    const res = await this.pool!.query('UPDATE users SET is_active=FALSE WHERE id=$1', [id]);
     return (res.rowCount ?? 0) > 0;
   }
 
