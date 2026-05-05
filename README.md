@@ -229,124 +229,167 @@ The interface is available in **English**, **Spanish**, and **Portuguese (Brazil
 
 ## Building from Source
 
-### Build Environment Requirements
+This section is the complete, step-by-step guide for building and packaging TimeTrack on **Windows 10 or Windows 11**. Follow the steps in order. Every command is shown exactly as you should type it in **PowerShell** or **Command Prompt**.
 
-You can build TimeTrack on **Windows 10 / 11** or on **Linux**. The Windows path is recommended for clients because it produces a ready-to-run package without any manual file-copying afterwards.
+> **Build on Windows.** The shipped product is a Windows `.exe`. Building on Windows means `fg-window.exe`, native modules, and the installer are produced correctly with no manual copying afterwards. Building on Linux or macOS is possible for development but is not recommended for the final delivery to end users.
 
-#### Common requirements (both platforms)
+### Step 1 — Install the Build Environment
 
-| Tool | Minimum version | Why it is needed |
-|---|---|---|
-| Node.js | 20.x LTS or higher | Runs the build scripts |
-| npm | 10.x or higher | Installs dependencies |
-| Python | 3.x | Required by `node-gyp` to compile `better-sqlite3` |
-| C/C++ build tools | latest | Required to compile `better-sqlite3` |
-| Git | any recent | To clone the repository |
+Install these tools on the Windows machine that will produce the build. Each one is required.
 
-Verify your versions before starting:
+#### 1.1 Node.js 20 LTS (or newer)
+
+Download from <https://nodejs.org/> and run the installer. During installation, **leave the "Automatically install the necessary tools" checkbox enabled** — this option installs Python and Visual Studio Build Tools automatically and saves you steps 1.2 and 1.3.
+
+After installation, open a new PowerShell window and confirm:
 ```
 node -v
 npm -v
+```
+You should see `v20.x.x` or higher for Node and `10.x.x` or higher for npm.
+
+#### 1.2 Python 3 (required to compile native modules)
+
+Skip this step if step 1.1 already installed Python.
+
+Why Python is needed: the `better-sqlite3` package contains C++ source code that must be compiled into a `.node` binary on your machine. The compile is driven by `node-gyp`, which uses Python scripts to generate the platform's build files. Python is **not** used at runtime — only during `npm install`.
+
+Download Python 3 from <https://www.python.org/downloads/windows/>. During installation, **check "Add Python to PATH"** at the bottom of the first installer screen.
+
+Verify:
+```
 python --version
 ```
 
-#### Windows-specific requirements
+#### 1.3 Visual Studio Build Tools (C++ compiler)
 
-- **Visual Studio Build Tools 2019 or 2022** with the "Desktop development with C++" workload installed. The standalone "Build Tools for Visual Studio" installer is sufficient — the full IDE is not required.
-- **.NET Framework 4.x** (already included with Windows 10/11) — only needed if you want to recompile `fg-window.exe`.
-- Run all `npm` commands from **Command Prompt** or **PowerShell**, not Git Bash, to avoid path issues with native modules.
+Skip this step if step 1.1 already installed it.
 
-The easiest way to install the Windows build prerequisites in one step:
+Download "Build Tools for Visual Studio 2022" from <https://visualstudio.microsoft.com/downloads/> (scroll to "Tools for Visual Studio"). Run the installer. In the workload picker, select:
+
+- **Desktop development with C++**
+
+The full Visual Studio IDE is not required — the standalone Build Tools installer is enough. The download is around 6 GB.
+
+#### 1.4 Git
+
+Download from <https://git-scm.com/download/win> and install with the default options.
+
+Verify:
 ```
-npm install --global windows-build-tools
+git --version
 ```
-This installs Python and the Visual Studio C++ Build Tools automatically. After it finishes, restart your terminal.
 
-#### Linux-specific requirements
+#### 1.5 Restart the terminal
 
-- `build-essential` package (provides gcc, g++, make).
-- For Ubuntu/Debian:
-  ```bash
-  sudo apt install build-essential python3 nodejs npm
-  ```
+After installing all of the above, **close every PowerShell or Command Prompt window and open a new one** so PATH changes take effect. Then re-run the verification commands from steps 1.1, 1.2, and 1.4 to confirm everything is on the PATH.
 
-> When building on Linux, the resulting Windows package will not contain `fg-window.exe`. You must copy it manually before distributing — see the [Package for Windows](#package-for-windows) section.
+### Step 2 — Get the Source Code
 
-### Setup
-
+Open PowerShell in the folder where you want the project, then:
 ```
-git clone <repo-url>
+git clone https://github.com/anderdogzaela-ship-it/TimeTrack.git
 cd TimeTrack
+```
+
+### Step 3 — Install Dependencies
+
+```
 npm install
 ```
 
-The `npm install` step compiles `better-sqlite3` natively. This takes 2–5 minutes the first time. If it fails, see [Troubleshooting](#troubleshooting).
+This downloads all packages and compiles `better-sqlite3` for your machine. The first run takes 2 to 5 minutes. You should see output like `gyp info ok` near the end. If it fails, see [Troubleshooting](#troubleshooting).
 
-### Development
+### Step 4 — Add the .env File
 
+Create a file named `.env` in the project root (the same folder that contains `package.json`). Put a single line in it:
 ```
-npm run dev
-```
-
-Starts the Vite dev server and launches Electron with hot-reload. The renderer reloads automatically on frontend changes. Main process changes require a full restart.
-
-### Production Build
-
-```
-npm run build
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 ```
 
-Output:
-```
-dist/             React renderer
-dist-electron/    Electron main process and preload
-```
+Replace `USER`, `PASSWORD`, `HOST`, `PORT`, and `DATABASE` with your PostgreSQL credentials. For Railway databases, use the **public proxy URL** (e.g. `switchback.proxy.rlwy.net:30108`), not the internal hostname.
 
-### Package for Windows
+> Do not commit the `.env` file. It is already listed in `.gitignore`.
 
-Run on a Windows machine for a fully working build:
+### Step 5 — Build and Package
+
 ```
 npm run build:win
 ```
 
-This produces:
+This does three things in sequence:
+
+1. Compiles the TypeScript renderer into `dist/`.
+2. Compiles the Electron main process into `dist-electron/`.
+3. Packages everything into `release/win-unpacked/` using electron-builder.
+
+The build takes 2 to 4 minutes. When it finishes, you will have:
+
 ```
-release/win-unpacked/    complete application folder
+release/win-unpacked/                        ← the entire app
+release/win-unpacked/TimeTrack.exe           ← the launcher the user runs
+release/win-unpacked/resources/              ← bundled resources
+release/win-unpacked/resources/fg-window.exe ← focus detector
+release/win-unpacked/resources/.env          ← database config (auto-bundled if present)
 ```
 
-When building on Windows, `fg-window.exe` and the `.env` are included automatically if they exist in the source tree. When building on Linux, copy them manually:
-```bash
-cp src/helpers/fg-window.exe release/win-unpacked/resources/
-cp .env release/win-unpacked/resources/
-```
+Building on Windows automatically includes `fg-window.exe` and `.env`. No manual copying is required.
 
-Create the distribution archive (Linux/macOS):
-```bash
-tar -czf release/TimeTrack-win-x64.tar.gz -C release win-unpacked
-```
+### Step 6 — Verify the Build Locally
 
-On Windows, use 7-Zip or PowerShell:
-```powershell
+Before shipping to users, double-click `release/win-unpacked/TimeTrack.exe` and confirm:
+
+- The app starts and shows the Dashboard.
+- The system tray icon appears.
+- Opening **Management** and clicking **Sync** completes without error (this confirms the `.env` is correctly bundled).
+- Focusing a registered program triggers the popup or auto-tracking.
+
+If any step fails, see [Troubleshooting](#troubleshooting).
+
+### Step 7 — Create the Distribution Archive
+
+Compress the `win-unpacked` folder so it can be sent to users. In PowerShell:
+```
 Compress-Archive -Path release\win-unpacked -DestinationPath release\TimeTrack-win-x64.zip
 ```
 
-The archive is approximately 150 MB.
-
-### Type Check
-
+Or, with 7-Zip if you prefer `.tar.gz`:
 ```
-npm run typecheck
+7z a -ttar release\TimeTrack-win-x64.tar release\win-unpacked
+7z a -tgzip release\TimeTrack-win-x64.tar.gz release\TimeTrack-win-x64.tar
 ```
+
+The final archive is approximately 150 MB.
+
+### Step 8 — Distribute
+
+Send the `.zip` (or `.tar.gz`) to end users. They should:
+
+1. Extract the archive.
+2. Run `TimeTrack.exe` from the `win-unpacked` folder.
+
+No installer or admin rights are required.
+
+### Other Useful Commands
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Run with hot-reload for development |
+| `npm run build` | Build TypeScript without packaging |
+| `npm run typecheck` | Check types without producing files |
+
+> **Main process changes are not hot-reloaded.** Restart the dev process after editing any file under `src/main/`.
 
 ### Rebuilding fg-window.exe
 
-`fg-window.exe` reads the foreground window via the Win32 API. The source is at `src/helpers/fg-window.cs`. To recompile on a Windows machine:
+`fg-window.exe` is a small helper that calls the Win32 `GetForegroundWindow` API. The source is at `src/helpers/fg-window.cs`. The repository already includes a precompiled `fg-window.exe` — you only need to recompile if you modify the C# source.
 
+To recompile on Windows:
 ```
 C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /out:fg-window.exe fg-window.cs
 ```
 
-Copy the result back to `src/helpers/` and to `release/win-unpacked/resources/`.
+Copy the result back to `src/helpers/`. The next `npm run build:win` will pick it up automatically.
 
 ---
 
@@ -384,14 +427,23 @@ npx electron-rebuild
 ```
 Then rebuild with `npm run build:win`.
 
-**`npm install` fails with "gyp ERR! find Python" or "MSB4019" on Windows**
-The C++ build toolchain or Python is missing. Install the Visual Studio Build Tools 2019/2022 with the "Desktop development with C++" workload, then restart your terminal and try again. Confirm Python is on the PATH with `python --version`.
+**`npm install` fails with "gyp ERR! find Python" on Windows**
+Python is not installed or not on the PATH. Install Python 3 from <https://www.python.org/downloads/windows/>, **check "Add Python to PATH"** during install, close and reopen PowerShell, then run `python --version` to verify. Re-run `npm install`.
 
-**`npm install` fails on Linux with "Python not found" or "g++ not found"**
-Install build-essential and Python 3:
-```bash
-sudo apt install build-essential python3
+**`npm install` fails with "MSB4019", "Visual Studio not found", or "Could not find any Visual Studio installation"**
+The C++ build toolchain is missing. Install Visual Studio Build Tools 2022 from <https://visualstudio.microsoft.com/downloads/> with the **Desktop development with C++** workload. Close and reopen PowerShell, then re-run `npm install`.
+
+**`npm install` fails with "node-gyp rebuild" errors**
+This usually means Python or the C++ toolchain is wrong. Run these in order from PowerShell:
 ```
+node -v
+python --version
+npm config get python
+```
+If `npm config get python` returns blank, run `npm config set python python` and try again.
+
+**`npm run build:win` finishes but `TimeTrack.exe` does not start**
+The `.env` may be missing or `fg-window.exe` may not have been bundled. Check that both files exist in `release/win-unpacked/resources/`. If missing, copy them manually from `.env` and `src/helpers/fg-window.exe` and try again.
 
 **Popup does not appear for a registered program**
 - Confirm the program is listed in Management under Programs.
