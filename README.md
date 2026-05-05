@@ -229,29 +229,62 @@ The interface is available in **English**, **Spanish**, and **Portuguese (Brazil
 
 ## Building from Source
 
-### Requirements
+### Build Environment Requirements
 
-- Node.js 20 or higher
-- npm 10 or higher
-- Python 3 and a C++ build toolchain (for compiling `better-sqlite3`)
-- Linux or Windows build machine
+You can build TimeTrack on **Windows 10 / 11** or on **Linux**. The Windows path is recommended for clients because it produces a ready-to-run package without any manual file-copying afterwards.
 
-Verify your versions:
+#### Common requirements (both platforms)
+
+| Tool | Minimum version | Why it is needed |
+|---|---|---|
+| Node.js | 20.x LTS or higher | Runs the build scripts |
+| npm | 10.x or higher | Installs dependencies |
+| Python | 3.x | Required by `node-gyp` to compile `better-sqlite3` |
+| C/C++ build tools | latest | Required to compile `better-sqlite3` |
+| Git | any recent | To clone the repository |
+
+Verify your versions before starting:
 ```
 node -v
 npm -v
+python --version
 ```
+
+#### Windows-specific requirements
+
+- **Visual Studio Build Tools 2019 or 2022** with the "Desktop development with C++" workload installed. The standalone "Build Tools for Visual Studio" installer is sufficient — the full IDE is not required.
+- **.NET Framework 4.x** (already included with Windows 10/11) — only needed if you want to recompile `fg-window.exe`.
+- Run all `npm` commands from **Command Prompt** or **PowerShell**, not Git Bash, to avoid path issues with native modules.
+
+The easiest way to install the Windows build prerequisites in one step:
+```
+npm install --global windows-build-tools
+```
+This installs Python and the Visual Studio C++ Build Tools automatically. After it finishes, restart your terminal.
+
+#### Linux-specific requirements
+
+- `build-essential` package (provides gcc, g++, make).
+- For Ubuntu/Debian:
+  ```bash
+  sudo apt install build-essential python3 nodejs npm
+  ```
+
+> When building on Linux, the resulting Windows package will not contain `fg-window.exe`. You must copy it manually before distributing — see the [Package for Windows](#package-for-windows) section.
 
 ### Setup
 
-```bash
+```
+git clone <repo-url>
 cd TimeTrack
 npm install
 ```
 
+The `npm install` step compiles `better-sqlite3` natively. This takes 2–5 minutes the first time. If it fails, see [Troubleshooting](#troubleshooting).
+
 ### Development
 
-```bash
+```
 npm run dev
 ```
 
@@ -259,7 +292,7 @@ Starts the Vite dev server and launches Electron with hot-reload. The renderer r
 
 ### Production Build
 
-```bash
+```
 npm run build
 ```
 
@@ -271,7 +304,8 @@ dist-electron/    Electron main process and preload
 
 ### Package for Windows
 
-```bash
+Run on a Windows machine for a fully working build:
+```
 npm run build:win
 ```
 
@@ -280,29 +314,27 @@ This produces:
 release/win-unpacked/    complete application folder
 ```
 
-Because the build runs on Linux, the `fg-window.exe` helper is not included automatically. Copy it after packaging:
-
+When building on Windows, `fg-window.exe` and the `.env` are included automatically if they exist in the source tree. When building on Linux, copy them manually:
 ```bash
 cp src/helpers/fg-window.exe release/win-unpacked/resources/
-```
-
-Bundle the `.env` with the build:
-
-```bash
 cp .env release/win-unpacked/resources/
 ```
 
-Create the distribution archive:
-
+Create the distribution archive (Linux/macOS):
 ```bash
 tar -czf release/TimeTrack-win-x64.tar.gz -C release win-unpacked
+```
+
+On Windows, use 7-Zip or PowerShell:
+```powershell
+Compress-Archive -Path release\win-unpacked -DestinationPath release\TimeTrack-win-x64.zip
 ```
 
 The archive is approximately 150 MB.
 
 ### Type Check
 
-```bash
+```
 npm run typecheck
 ```
 
@@ -345,12 +377,21 @@ Restart the app after editing.
 **The app does not start or focus detection does not work**
 Check that `fg-window.exe` is present in the `resources` folder inside the app directory. If missing, copy it from `src/helpers/`. The app falls back to a slower PowerShell method if the file is not found.
 
-**better-sqlite3 fails to load**
+**better-sqlite3 fails to load at runtime**
 The native module was built for a different Node or Electron version. Run:
-```bash
+```
 npx electron-rebuild
 ```
 Then rebuild with `npm run build:win`.
+
+**`npm install` fails with "gyp ERR! find Python" or "MSB4019" on Windows**
+The C++ build toolchain or Python is missing. Install the Visual Studio Build Tools 2019/2022 with the "Desktop development with C++" workload, then restart your terminal and try again. Confirm Python is on the PATH with `python --version`.
+
+**`npm install` fails on Linux with "Python not found" or "g++ not found"**
+Install build-essential and Python 3:
+```bash
+sudo apt install build-essential python3
+```
 
 **Popup does not appear for a registered program**
 - Confirm the program is listed in Management under Programs.
