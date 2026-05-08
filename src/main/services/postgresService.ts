@@ -89,11 +89,16 @@ export class PostgresService {
     );
   }
 
+  private retryTimer: NodeJS.Timeout | null = null;
+  private retryAttempt = 0;
+
   async connect(): Promise<boolean> {
     try {
       const client = await this.pool!.connect();
       client.release();
       this.connected = true;
+      this.retryAttempt = 0;
+      if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null; }
       await this.initSchema();
       console.log('[Postgres] Connected successfully');
       return true;
@@ -102,8 +107,25 @@ export class PostgresService {
       console.error('[Postgres] Error code:', err.code);
       console.error('[Postgres] Error detail:', err.detail || err.stack || '(no detail)');
       this.connected = false;
+      this.scheduleReconnect();
       return false;
     }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.retryTimer) return;
+    // Backoff: 5s, 10s, 20s, 40s, 80s, 160s, capped at 300s (5 min)
+    const delays = [5000, 10000, 20000, 40000, 80000, 160000];
+    const delay = delays[Math.min(this.retryAttempt, delays.length - 1)] || 300000;
+    this.retryAttempt++;
+    console.log(`[Postgres] Will retry connection in ${delay / 1000}s (attempt ${this.retryAttempt})`);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      if (!this.connected) {
+        console.log('[Postgres] Retrying connection...');
+        this.connect().catch(() => {});
+      }
+    }, delay);
   }
 
   isConnected(): boolean {

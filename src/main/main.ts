@@ -713,6 +713,9 @@ class TimeTrackApp {
         if (timer) {
           clearTimeout(timer);
           this.popupTimers.delete(this.currentActiveProcess);
+          // Without this, an aborted switch leaves the cooldown set forever
+          // and the program never gets another popup until app restart.
+          this._popupCooldown.delete(this.currentActiveProcess);
         }
       }
       this.currentActiveProcess = processName;
@@ -1305,6 +1308,11 @@ class TimeTrackApp {
         return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
       };
       const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '';
+      const fmtDate = (iso: string | null) => {
+        if (!iso) return '';
+        const d = new Date(iso);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      };
 
       const lines: string[] = [];
 
@@ -1326,9 +1334,10 @@ class TimeTrackApp {
 
       lines.push('');
       lines.push('TIME ENTRIES');
-      lines.push('Member,Project,Subproject,App,Start,End,Duration,Adjusted');
+      lines.push('Date,Member,Project,Subproject,App,Start,End,Duration,Adjusted');
       for (const e of entries) {
         lines.push([
+          fmtDate(e.start_time),
           `"${e.user_name}"`,
           `"${e.project_name || 'No Project'}"`,
           `"${e.project_subproject || ''}"`,
@@ -1345,9 +1354,10 @@ class TimeTrackApp {
       if (auditLog.length === 0) {
         lines.push('No manual adjustments on this date.');
       } else {
-        lines.push('Time,Manager,Member,Project,Old Start,Old End,New Start,New End,Reason');
+        lines.push('Date,Time,Manager,Member,Project,Old Start,Old End,New Start,New End,Reason');
         for (const a of auditLog) {
           lines.push([
+            fmtDate(a.created_at),
             fmtTime(a.created_at),
             `"${a.manager_name}"`,
             `"${a.target_user_name}"`,

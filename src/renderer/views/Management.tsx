@@ -503,7 +503,24 @@ const Management: React.FC = () => {
           <div style={{ background:'#161C26', border:'1px solid #1E2530', borderRadius:'14px', padding:'28px', width:'320px' }}>
             <div style={{ fontSize:'16px', fontWeight:700, color:'#E2E8F0', marginBottom:'4px' }}>Export date range</div>
             {exportMember && <div style={{ fontSize:'12px', color:'#1FB8A0', marginBottom:'16px' }}>{exportMember.name}</div>}
-            {!exportMember && <div style={{ marginBottom:'16px' }} />}
+            {!exportMember && (
+              <>
+                <label style={{ ...labelStyle, marginTop:'12px' }}>Member</label>
+                <select
+                  value={''}
+                  onChange={e => {
+                    const id = e.target.value;
+                    if (!id) { setExportMember(null); return; }
+                    const m = members.find(x => x.id === id);
+                    if (m) setExportMember(m);
+                  }}
+                  style={{ ...inputStyle, marginBottom:'12px' }}
+                >
+                  <option value="">All members</option>
+                  {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </>
+            )}
             <label style={labelStyle}>Start date</label>
             <input type="date" value={exportStart} max={today} onChange={e => setExportStart(e.target.value)} style={{ ...inputStyle, marginBottom:'12px' }} />
             <label style={labelStyle}>End date</label>
