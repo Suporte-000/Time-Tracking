@@ -39,15 +39,19 @@ function loadEnvEarly() {
 // Phase 2: load from userData / resources (requires app.whenReady)
 function loadEnvAfterReady() {
   const userDataEnv = path.join(app.getPath('userData'), '.env');
-  const bundledEnv = path.join(process.resourcesPath || '', '.env');
+  const exeDirEnv = path.join(path.dirname(process.execPath), '.env');
+  const bundledResourcesEnv = path.join(process.resourcesPath || '', '.env');
 
-  // If userData .env doesn't exist, try to create it
+  // Search candidates in priority order — first existing source wins
+  const sourceCandidates = [bundledResourcesEnv, exeDirEnv, path.join(app.getAppPath(), '.env')];
+  const existingSource = sourceCandidates.find(p => fs.existsSync(p));
+
+  // If userData .env doesn't exist, copy from a real source if any exists.
+  // Only create an empty template if no source is found anywhere.
   if (!fs.existsSync(userDataEnv)) {
-    if (fs.existsSync(bundledEnv)) {
-      // Copy bundled .env to userData
-      try { fs.copyFileSync(bundledEnv, userDataEnv); console.log('[ENV] Copied bundled .env to userData'); } catch {}
+    if (existingSource) {
+      try { fs.copyFileSync(existingSource, userDataEnv); console.log('[ENV] Copied', existingSource, 'to userData'); } catch {}
     } else {
-      // Create template so user knows where to put credentials
       try {
         fs.mkdirSync(path.dirname(userDataEnv), { recursive: true });
         fs.writeFileSync(userDataEnv, '# TimeTrack configuration\nDATABASE_URL=\n');
@@ -56,14 +60,14 @@ function loadEnvAfterReady() {
     }
   }
 
-  // Load from userData (highest priority) or bundled fallback
-  const candidates = [userDataEnv, bundledEnv, path.join(app.getAppPath(), '.env')];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) {
-      parseEnvFile(p);
-      console.log('[ENV] Loaded from:', p);
-      break;
-    }
+  // Load from userData first; only fall back to other sources if userData has no DATABASE_URL
+  const loadCandidates = [userDataEnv, ...sourceCandidates];
+  for (const p of loadCandidates) {
+    if (!fs.existsSync(p)) continue;
+    parseEnvFile(p);
+    console.log('[ENV] Loaded from:', p);
+    if (process.env.DATABASE_URL) break;
+    console.log('[ENV] DATABASE_URL not set in this file, trying next source');
   }
   console.log('[ENV] DATABASE_URL:', process.env.DATABASE_URL ? 'SET ✓' : 'NOT SET ✗');
 }

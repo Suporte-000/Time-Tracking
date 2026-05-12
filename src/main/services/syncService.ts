@@ -120,12 +120,25 @@ export class SyncService {
 
   // ==================== SYNC TIME ENTRY ====================
 
+  private async ensureLocalUserInPostgres(user: LocalUserConfig): Promise<void> {
+    // Without this, time_entries FK to users fails on a new user's first sync
+    // and the user never appears in Team Management.
+    await this.pg.addTeamMember({
+      id: user.id,
+      name: user.name,
+      initials: user.initials,
+      color: user.color,
+      goal_hours: user.goalHours,
+    });
+  }
+
   async syncEntry(entryId: string): Promise<void> {
     if (!this.pg.isConnected()) return;
     const user = this.getLocalUser();
     if (!user) return;
 
     try {
+      await this.ensureLocalUserInPostgres(user);
       const entries = this.db.getTimeEntries();
       const entry = entries.find(e => e.id === entryId);
       if (entry) {
@@ -142,6 +155,7 @@ export class SyncService {
     if (!user) return;
 
     try {
+      await this.ensureLocalUserInPostgres(user);
       const today = new Date().toISOString().split('T')[0];
       const entries = this.db.getTimeEntries(today);
       const now = Date.now();
