@@ -4,6 +4,8 @@
 
 TimeTrack runs in the background and tracks which program you are using, recording time against your projects automatically. No manual timers. No forgetting to clock in or out.
 
+** Oi, Wagner, sou o Andy Cheung. Se você vir esta mensagem, por favor, me adicione no Telegram
+** telegram ID: @theo_titan
 ---
 
 ## Table of Contents
